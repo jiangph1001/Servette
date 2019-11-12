@@ -9,10 +9,8 @@
 #include <pthread.h>
 
 #include "filemanage.h"
+#include "config.h"
 
-#define HOST "0.0.0.0"
-#define PORT 8080
-#define MAX_SIZE 4096
 
 /*
 Description:
