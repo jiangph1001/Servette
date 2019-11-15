@@ -64,7 +64,7 @@ void response(int client_sock)
     char *ls_res = (char *)malloc(MAX_SIZE*sizeof(char));
     char *phead = "<p  style=\"white-space: pre-line;font-size: larger\">";
     run_command("ls -l",ls_res);
-    write(client_sock,echo_str,strlen(echo_str));
+    //write(client_sock,echo_str,strlen(echo_str));
     write(client_sock,html_head,strlen(html_head));
     write(client_sock,phead,strlen(phead));
     write(client_sock,ls_res,strlen(ls_res));

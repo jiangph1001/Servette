@@ -25,14 +25,12 @@ void run_command(const char* cmd,char* res)
         exit(-1);
     }
     data = (char *)malloc(BUFFER*sizeof(char));
-    //res = (char *)malloc(BUFFER*sizeof(char));
     while (fgets(data, sizeof(data), pp) != NULL)
 	{
-        //len+=BUFFER;
-        //res = (char *)realloc(res,len*sizeof(char));
 		sprintf(res,"%s%s",res,data);
 	}
     puts(res);
+	free(data);
     pclose(pp); //关闭管道
 }
 
