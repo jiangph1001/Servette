@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "config.h"
 #define BUFFER 1024
 
 /*
@@ -64,9 +65,10 @@ Parameters:
 Return:
     null
 */
+/*
 void ls(const char *path, char *res)
 {
-    DIR *dp;
+    DIR * dp;
     struct dirent *dirp;
     res = (char *)malloc(BUFFER*sizeof(char));
     dp=opendir(path);
@@ -82,3 +84,4 @@ void ls(const char *path, char *res)
     puts(res);
     closedir(dp);
 }
+*/
