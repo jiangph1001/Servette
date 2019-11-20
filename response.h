@@ -221,20 +221,123 @@ ssize_t get_next_line(char * temp, const char * buffer, ssize_t pos_of_buffer, s
 }
 
 
-void upload_file(const char * buffer, http_header_chain headers, ssize_t begin_pos_of_http_content)
+/*
+Description:
+    从输入的buffer字符数组中的下标pos开始，到下一个"\r\n"。
+    获取完整的一行。输入的数字代表限制长度。此函数仅仅可以
+    在
+Return:
+    成功返回0，失败返回1
+*/
+int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize_t begin_pos_of_http_content)
 {
-    int fd = open("test.txt", O_RDWR|O_CREAT);
+    ssize_t content_length = 0;
+    ssize_t temp_pos = 0;
     char temp[MAX_SIZE];
-    //begin_pos_of_http_content 很重要
-    //从首部行Content-Type中获得分隔符boundary
+    char boundary[MIDDLE_SIZE];
+    char filename[MIDDLE_SIZE];
+    char * char_pointer;
+
+    //首先从首部行Content-Type中获得分隔符boundary
+    //执行以下函数，temp数组中存储的是名字为Content-Type的首部行的，首部行内容
     get_http_header_content("Content-Type", temp, &headers, MAX_SIZE);
+    // 提取出temp数组中的boundary
+    char_pointer = strstr(temp, "boundary");
+    char_pointer = char_pointer + 9;
+    while((*char_pointer) != '\r')
+    {
+        boundary[temp_pos++] = (*char_pointer);
+        char_pointer = char_pointer + 1;
+    }
+    boundary[temp_pos] = '\0';
+    // boundary之前还会多两个"-"
+    strncpy(temp, boundary, strlen(boundary));
+    temp[strlen(boundary)] = '\0';
+    strncpy(boundary, "--", 2);
+    boundary[2] = '\0';
+    strncat(boundary, temp, strlen(temp));
+    printf("boundary: %s \n", boundary);
+
+
+
+    //begin_pos_of_http_content很重要, HTTP数据包在这一点之后就是http数据包的实体部分
+    //使用pos_of_buffer来显示现在读取的buffer的位置
     ssize_t pos_of_buffer = begin_pos_of_http_content;
+
+
+    //首先读取第一行，这里第一行是boundary
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
+    //假定浏览器发过来的POST请求都是关于上传文件的
+    //那么第二行一定包含了文件名这一信息，
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
+    //从temp数组中提取文件名字
+    temp_pos = 0;
+    char_pointer = strstr(temp, "filename");
+    char_pointer = char_pointer + 10;
+    while ( (*char_pointer) != '\"')
+    {
+        filename[temp_pos++] = (*char_pointer);
+        char_pointer = char_pointer + 1;
+    }
+    filename[temp_pos] = '\0';
+    printf("filename： %s\n", filename);
+
+    //根据文件名，创建文件
+    int fd = open(filename, O_CREAT | O_WRONLY);
+    
+
+    //第三行是文件类型信息
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
+
+    //第四行是空行
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
-    pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
-    int n = write(fd, temp, strlen(temp) );
+
+    //从第5行开始时文件内容，直到遇见boundary结束
+    while ( 1 )
+    {
+        // 查找在buffer数组中pos_of_buffer位置之后是否存在
+        // boundary，存在证明file结尾在此buffer中，不存在
+        // 证明还需要再读socket中的数据
+        char_pointer = strstr(buffer + pos_of_buffer, boundary);
+
+        // file的结尾不存在于此buffer中
+        if(char_pointer == NULL)
+        {
+            printf("写入的数量: %d\n", strlen(buffer) - pos_of_buffer);
+            if( write(fd, buffer + pos_of_buffer, strlen(buffer) - pos_of_buffer) == -1 )
+            {
+                //删除文件并提示出错
+                close(fd);
+                unlink(filename);
+                return -1;
+            }
+            else
+            {
+                //读socket中的数据
+                read(client_sock, buffer, MAX_SIZE);
+                pos_of_buffer = 0;
+            }
+            
+        }
+        else //file的结尾存在于此buffer中
+        {
+            //写入失败
+            printf("写入的数量: %d\n", (int)(char_pointer - buffer - pos_of_buffer));
+            if(write(fd, buffer + pos_of_buffer, (int)(char_pointer - buffer - pos_of_buffer)) == -1)
+            {
+                //删除文件并提示出错
+                close(fd);
+                unlink(filename);
+                return -1;
+            }
+            else
+            {
+                //关闭文件
+                close(fd);
+                return 0;
+            }
+        }
+    }
 }
 
 /*
@@ -274,7 +377,7 @@ void do_Method(int client_sock,char *buffer)
             break;
             // POST
         case 'P':
-            upload_file(buffer, headers, begin_pos_of_http_content);
+            upload_file(client_sock, buffer, headers, begin_pos_of_http_content);
             break;
     }
     delete_http_headers(&headers);
