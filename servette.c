@@ -8,7 +8,7 @@
 //#include <stdlib.h>   
 //#include <string.h>
 //#include <errno.h>
-//#include <pthread.h>
+#include <pthread.h>
 
 #include "response.h"
 
@@ -61,10 +61,9 @@ int main(int argc, char *argv[])
 {   
     int server_sock,client_sock;
     server_sock = start_server();
-    
+
     while(1)
     {
-        char buffer[MAX_SIZE];
         struct sockaddr_in client_addr;
         socklen_t len = sizeof(client_addr);
         client_sock = accept(server_sock, (struct sockaddr *)& client_addr,&len);
@@ -72,13 +71,11 @@ int main(int argc, char *argv[])
         {
             continue;
         }
-        //buffer是接收到的请求，需要处理
-        read(client_sock,buffer,MAX_SIZE);
-        
         //对于请求进行处理
-        do_Method(client_sock,buffer);
-
-        close(client_sock);
+        //do_Method(client_sock,buffer);
+        pthread_t tid;
+        pthread_create(&tid,NULL,do_Method,&client_sock);
+        //pthread_join(tid,NULL);
     }
     close(server_sock);
     return 0;

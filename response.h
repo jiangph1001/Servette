@@ -8,9 +8,14 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #include "http_header_utils.h"
 #include "filemanage.h"
+
+
+
+pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 /*
 //临时测试用
 void response_test(int client_sock)
@@ -59,7 +64,9 @@ void construct_header(char *header,int status,const char *type)
             break;
     }
     sprintf(header,"HTTP/1.1 %d %s\r\n",status,msg);
-    sprintf(header,"%sContent-Type:%s\r\n\n",header,type);
+    sprintf(header,"%sContent-Type:%s\r\n",header,type);
+    sprintf(header,"%sConnection: keep-alive\r\n\n",header);
+
     printf("%s\n",header);
 
 }
@@ -92,7 +99,7 @@ Parameters:
 Return:
     NULL
 */
-void response_f(int client_sock, char *file)
+void response_webpage(int client_sock, char *file)
 {
     int fd;
     char buf[MAX_SIZE],header[MAX_SIZE];
@@ -120,6 +127,7 @@ void response_f(int client_sock, char *file)
     fd = open(file,O_RDONLY);
     if(fd == -1)
     {
+        //打开文件失败时构造404的相应
         construct_header(header,404,"text/html");
         write(client_sock,header,strlen(header));
         return;
@@ -141,10 +149,12 @@ void response_f(int client_sock, char *file)
         char *ls_res = (char *)malloc(MAX_SIZE*sizeof(char));
         char *phead = "<p  style=\"white-space: pre-line;font-size: larger\">";
         const char *tail = "</p></html>";
+        /*
         run_command("ls -l",ls_res);
         write(client_sock,phead,strlen(phead));
         write(client_sock,ls_res,strlen(ls_res));
         write(client_sock,tail,strlen(tail));
+        */
     }
 }
 
@@ -241,18 +251,26 @@ void upload_file(const char * buffer, http_header_chain headers, ssize_t begin_p
 Description:
     对请求的内容进行处理，分割为GET和POST请求
 Parameters:
-    int client_sock [IN] 客户端的socket
-    char *buffer: [IN] 请求内容
+    void *client_sock [IN] 客户端的socket
 Return:
     NULL
 */
-void do_Method(int client_sock,char *buffer)
+void *do_Method(void *p_client_sock)
 {
-      
+    //另当前线程分离
+    pthread_detach(pthread_self());
     char methods[4]; //GET or POST
-    char file_path[NAME_LEN];
+    char buffer[MAX_SIZE],file_path[NAME_LEN];
+    int client_sock = *(int*) p_client_sock;
+    read(client_sock,buffer,MAX_SIZE);
+    //buffer是接收到的请求，需要处理
+    //从buffer中分离出请求的方法和请求的参数
     sscanf(buffer,"%s %s",methods,file_path);
-    printf("%s %s\n",methods,file_path);
+    #ifdef _DEBUG
+    pthread_t tid = pthread_self();
+    printf("pid: %d:%s %s\n",(int)tid%10000,methods,file_path);
+    #endif
+    //printf("%s %s\n",methods,file_path);
 
     //获得所有的首部行组成的链表
     http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
@@ -269,15 +287,46 @@ void do_Method(int client_sock,char *buffer)
                     response_download(client_sock,file_path);
                     break;
                 default:
-                    response_f(client_sock,file_path);
+                    response_webpage(client_sock,file_path);
             }
+
+            
+            //测试长链接
+            #ifdef _DEBUG
+            int cnt = 1;
+            char buf[30];
+            while(1)
+            {
+                sprintf(buf,"%d\n",cnt);
+                if(cnt%2000==0)
+                {
+                    write(client_sock,buf,strlen(buf));
+                }
+                else
+                {
+                    int ret = write(client_sock,"",1);
+                    if(ret == -1)
+                    {
+                        printf("write error: %s\n",strerror(errno));
+                    }
+                }
+                cnt++;
+                usleep(500);
+            }
+            #endif
+            //测试结束
+
+
             break;
             // POST
         case 'P':
             upload_file(buffer, headers, begin_pos_of_http_content);
             break;
+        default:
+            printf("暂不支持的方法:%s\n",methods);
     }
     delete_http_headers(&headers);
+    close(client_sock);
 }
 
 
