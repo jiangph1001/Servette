@@ -140,11 +140,31 @@ void response_f(int client_sock, char *file)
         }
         char *ls_res = (char *)malloc(MAX_SIZE*sizeof(char));
         char *phead = "<p  style=\"white-space: pre-line;font-size: larger\">";
-        const char *tail = "</p></html>";
-        run_command("ls -l",ls_res);
-        write(client_sock,phead,strlen(phead));
-        write(client_sock,ls_res,strlen(ls_res));
+        const char *tail = "</body></html>";
+        run_command("ls -a",ls_res);
+        //write(client_sock,phead,strlen(phead));
+        //write(client_sock,ls_res,strlen(ls_res));
+        write(client_sock, "<hr/ ><pre>", strlen("<hr/ ><pre>"));
+
+        //显示出此文件夹下各个文件
+        //__strtok_r是线程安全的字符串分割函数，以"\n"字符分割字符串
+        //one_file_name是被分割的一个子串的开始,rest_of_ls_res是剩余
+        //字符串的开始
+        char * rest_of_ls_res = NULL;
+        char * one_file_name = __strtok_r(ls_res, "\n", &rest_of_ls_res);
+        while (one_file_name)
+        {
+            write(client_sock, "<a href=\"", strlen("<a href=\""));
+            write(client_sock, one_file_name, strlen(one_file_name));
+            write(client_sock, "\">", strlen("\">"));
+            write(client_sock, one_file_name, strlen(one_file_name));
+            write(client_sock, "</a>\n", strlen("</a>\n"));
+            one_file_name = __strtok_r(NULL, "\n", &rest_of_ls_res);
+        }
+        
+        write(client_sock, "</pre><hr/ >", strlen("</pre><hr/ >"));
         write(client_sock,tail,strlen(tail));
+        free(ls_res);
     }
 }
 
@@ -220,6 +240,72 @@ ssize_t get_next_line(char * temp, const char * buffer, ssize_t pos_of_buffer, s
     return (pos_of_buffer + 2);
 }
 
+/*
+Description:
+    构造KMP算法中模式串的next数组：
+    const char * pat [IN] 模式串
+    int * next [IN] 模式串的next数组
+Return:
+    void
+*/
+void get_next_of_pat(const char * pat, int * next)
+{
+    next[0] = -1;
+    int i = 0, j = -1, size_of_pat = strlen(pat);
+
+    while(i < size_of_pat)
+    {
+        if(j == -1 || pat[i] == pat[j])
+        {
+            ++i;
+            ++j;
+            next[i] = j;
+        }
+        else
+        {
+            j = next[j];
+        }
+    }
+}
+
+/*
+Description:
+    KMP算法：
+    const char * str [IN] 被查找的主串，可以是二进制形式的
+    const char * pat [IN] 要查找的模式串，非二进制形式
+    ssize_t size_of_str [IN] 主串的长度
+Return:
+    存在，返回模式串在字串中的位置
+    不存在，返回-1
+*/
+int kmp(const char * str, const char * pat, ssize_t size_of_str)
+{
+    int i = 0, j = 0, size_of_pat = strlen(pat);
+    int next[MIDDLE_SIZE];
+    get_next_of_pat(pat, next);
+
+    while(i < size_of_str && j < size_of_pat)
+    {
+        if(j == -1 || str[i] == pat[j])
+        {
+            ++i;
+            ++j;
+        }
+        else
+        {
+            j = next[j];
+        }
+    }
+    if(j == size_of_pat)
+    {
+        return i - j;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
 
 /*
 Description:
@@ -229,7 +315,7 @@ Description:
 Return:
     成功返回0，失败返回1
 */
-int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize_t begin_pos_of_http_content)
+int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize_t begin_pos_of_http_content, ssize_t size_of_buffer)
 {
     ssize_t content_length = 0;
     ssize_t temp_pos = 0;
@@ -256,13 +342,15 @@ int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize
     strncpy(boundary, "--", 2);
     boundary[2] = '\0';
     strncat(boundary, temp, strlen(temp));
+    boundary[strlen(temp)] = '\0';
     printf("boundary: %s \n", boundary);
-
 
 
     //begin_pos_of_http_content很重要, HTTP数据包在这一点之后就是http数据包的实体部分
     //使用pos_of_buffer来显示现在读取的buffer的位置
     ssize_t pos_of_buffer = begin_pos_of_http_content;
+    // 一次写入文件的量
+    ssize_t written_size = 0;
 
 
     //首先读取第一行，这里第一行是boundary
@@ -282,6 +370,9 @@ int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize
     filename[temp_pos] = '\0';
     printf("filename： %s\n", filename);
 
+    // 这里要检查文件名是否已经存在了
+
+
     //根据文件名，创建文件
     int fd = open(filename, O_CREAT | O_WRONLY);
     
@@ -298,13 +389,14 @@ int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize
         // 查找在buffer数组中pos_of_buffer位置之后是否存在
         // boundary，存在证明file结尾在此buffer中，不存在
         // 证明还需要再读socket中的数据
-        char_pointer = strstr(buffer + pos_of_buffer, boundary);
+        int pos_of_boundary_after_pos_of_buffer = kmp(buffer + pos_of_buffer, boundary, size_of_buffer - pos_of_buffer);
 
         // file的结尾不存在于此buffer中
-        if(char_pointer == NULL)
+        if(pos_of_boundary_after_pos_of_buffer == -1)
         {
-            printf("写入的数量: %d\n", strlen(buffer) - pos_of_buffer);
-            if( write(fd, buffer + pos_of_buffer, strlen(buffer) - pos_of_buffer) == -1 )
+            written_size =  write(fd, buffer + pos_of_buffer, size_of_buffer - pos_of_buffer);
+            printf("写入的数量: %d\n", written_size);
+            if( written_size == -1 )
             {
                 //删除文件并提示出错
                 close(fd);
@@ -314,16 +406,17 @@ int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize
             else
             {
                 //读socket中的数据
-                read(client_sock, buffer, MAX_SIZE);
+                int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
+                printf("从socket中读出的量：%d\n" , size_of_buffer);
                 pos_of_buffer = 0;
             }
             
         }
         else //file的结尾存在于此buffer中
         {
-            //写入失败
-            printf("写入的数量: %d\n", (int)(char_pointer - buffer - pos_of_buffer));
-            if(write(fd, buffer + pos_of_buffer, (int)(char_pointer - buffer - pos_of_buffer)) == -1)
+            written_size = write(fd, buffer + pos_of_buffer, pos_of_boundary_after_pos_of_buffer);
+            printf("写入的数量: %d\n", written_size);
+            if( written_size == -1)
             {
                 //删除文件并提示出错
                 close(fd);
@@ -349,11 +442,15 @@ Parameters:
 Return:
     NULL
 */
-void do_Method(int client_sock,char *buffer)
+void do_Method(int client_sock)
 {
-      
+    char buffer[MAX_SIZE];
     char methods[4]; //GET or POST
     char file_path[NAME_LEN];
+
+    // 从socket中读数据到buffer中，因为可能
+    // 存在二进制数据,所以要记录读到的字节数
+    ssize_t size_of_buffer = read(client_sock, buffer, MAX_SIZE);
     sscanf(buffer,"%s %s",methods,file_path);
     printf("%s %s\n",methods,file_path);
 
@@ -361,6 +458,7 @@ void do_Method(int client_sock,char *buffer)
     http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
     //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
     ssize_t begin_pos_of_http_content = get_http_headers(buffer,&headers);
+    //print_http_headers(&headers);
 
     switch(methods[0])
     {
@@ -377,10 +475,8 @@ void do_Method(int client_sock,char *buffer)
             break;
             // POST
         case 'P':
-            upload_file(client_sock, buffer, headers, begin_pos_of_http_content);
+            upload_file(client_sock, buffer, headers, begin_pos_of_http_content, size_of_buffer);
             break;
     }
     delete_http_headers(&headers);
 }
-
-

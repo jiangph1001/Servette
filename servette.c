@@ -72,12 +72,9 @@ int main(int argc, char *argv[])
         {
             continue;
         }
-        //buffer是接收到的请求，需要处理
-        read(client_sock,buffer,MAX_SIZE);
         
         //对于请求进行处理
-        do_Method(client_sock,buffer);
-
+        do_Method(client_sock);
         close(client_sock);
     }
     close(server_sock);

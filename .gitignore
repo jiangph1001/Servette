@@ -2,3 +2,4 @@ servette
 *.o
 *.txt
 *test*
+.vscode

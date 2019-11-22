@@ -8,3 +8,4 @@
 #define LOCALDIR "/"
 #define DIR "www/"
 #define MIN_SIZE 16
+#define FILE_DIR "file/"
