@@ -8,4 +8,6 @@
 #define LOCALDIR "/"
 #define DIR "www/"
 #define MIN_SIZE 16
+#define MAX_THRAD 5
+//#define _DEBUG
 #define FILE_DIR "/file"
