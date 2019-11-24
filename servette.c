@@ -77,7 +77,6 @@ int main(int argc, char *argv[])
         pthread_create(&tid,NULL,do_Method,&client_sock);
         //pthread_join(tid,NULL);
 
-
     }
     close(server_sock);
     return 0;

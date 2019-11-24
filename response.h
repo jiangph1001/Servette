@@ -515,7 +515,7 @@ void *do_Method(void *p_client_sock)
     char methods[4]; //GET or POST
     char buffer[MAX_SIZE],file_path[NAME_LEN];
     int client_sock = *(int*) p_client_sock;
-    read(client_sock,buffer,MAX_SIZE);
+    ssize_t size_of_buffer = read(client_sock, buffer, MAX_SIZE);
     //buffer是接收到的请求，需要处理
     //从buffer中分离出请求的方法和请求的参数
     sscanf(buffer,"%s %s",methods,file_path);
@@ -573,7 +573,6 @@ void *do_Method(void *p_client_sock)
             }
             #endif
             //测试结束
-
 
             break;
             // POST
