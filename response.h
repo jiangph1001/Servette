@@ -92,7 +92,7 @@ Parameters:
 Return:
     NULL
 */
-void response_f(int client_sock, char *file)
+void response_html(int client_sock, char *file)
 {
     int fd;
     char buf[MAX_SIZE],header[MAX_SIZE];
@@ -102,7 +102,7 @@ void response_f(int client_sock, char *file)
         //如果没有指定文件，则默认打开index.html
         sprintf(file,"%s%s",DIR,DEFAULT_FILE);
     }
-    else  if(strcmp(file,"/favicon.ico")==0)
+    else if(strcmp(file,"/favicon.ico")==0)
     {
         //对浏览器请求图标的行为返回一个空包
         //如果不返回包，tcp包会多次超时重传
@@ -138,16 +138,60 @@ void response_f(int client_sock, char *file)
                 write(client_sock,buf,size);
             }
         }
-        char *ls_res = (char *)malloc(MAX_SIZE*sizeof(char));
-        char *phead = "<p  style=\"white-space: pre-line;font-size: larger\">";
-        const char *tail = "</p></html>";
-        run_command("ls -l",ls_res);
-        write(client_sock,phead,strlen(phead));
-        write(client_sock,ls_res,strlen(ls_res));
-        write(client_sock,tail,strlen(tail));
     }
 }
 
+
+/*
+Description:
+    实现简单的CGI功能,真实的CGI复杂得多
+    处理列出文件列表的请求/cgi-bin/[一个目录]
+Parameters:
+    int client_sock [IN] 客户端的socket
+    char *arg: [IN] 解析的参数
+Return:
+    NULL
+*/
+void response_cgi(int client_sock,char *arg)
+{
+    ssize_t size = -1;
+    char html[MAX_SIZE],header[MAX_SIZE];
+    char dir_name[NAME_LEN];
+    if(sscanf(arg,"/cgi-bin%s",dir_name)==EOF)
+    {
+        //匹配失败！
+        printf("error:%s\n",arg);
+        construct_header(header,404,"text/html");
+        write(client_sock,header,strlen(header));
+        return;
+    }
+    else
+    {
+        //调用CGI程序，完成文件列表显示页面的构造
+        char cmd[MIDDLE_SIZE];
+        strncpy(cmd, "python3 cgi-bin/filelist.py ", sizeof(cmd) - 1);
+        strncat(cmd, dir_name, sizeof(cmd) - strlen(cmd) - 1);
+        FILE * fp = popen(cmd, "r");
+        if(!fp)
+        {
+            //匹配失败！
+            printf("error:%s\n",arg);
+            construct_header(header,404,"text/html");
+            write(client_sock,header,strlen(header));
+            return;
+        }
+        construct_header(header,200,"text/html");
+        write(client_sock,header,strlen(header));
+        while (fgets(html, sizeof(html), fp) != NULL)
+        {
+            int i = write(client_sock, html, strlen(html) - 1);
+            //注意sizeof("\r\n") == 3，算上了结尾的'\0'
+            i = write(client_sock, "\r\n", sizeof("\r\n") - 1);
+            
+        }
+        pclose(fp);
+    }
+}
 
 /*
 Description:
@@ -220,21 +264,223 @@ ssize_t get_next_line(char * temp, const char * buffer, ssize_t pos_of_buffer, s
     return (pos_of_buffer + 2);
 }
 
-
-void upload_file(const char * buffer, http_header_chain headers, ssize_t begin_pos_of_http_content)
+/*
+Description:
+    构造KMP算法中模式串的next数组：
+    const char * pat [IN] 模式串
+    int * next [IN] 模式串的next数组
+Return:
+    void
+*/
+void get_next_of_pat(const char * pat, int * next)
 {
-    int fd = open("test.txt", O_RDWR|O_CREAT);
+    next[0] = -1;
+    int i = 0, j = -1, size_of_pat = strlen(pat);
+
+    while(i < size_of_pat)
+    {
+        if(j == -1 || pat[i] == pat[j])
+        {
+            ++i;
+            ++j;
+            next[i] = j;
+        }
+        else
+        {
+            j = next[j];
+        }
+    }
+}
+
+/*
+Description:
+    KMP算法：
+    const char * str [IN] 被查找的主串，可以是二进制形式的
+    const char * pat [IN] 要查找的模式串，非二进制形式
+    ssize_t size_of_str [IN] 主串的长度
+Return:
+    存在，返回模式串在字串中的位置
+    不存在，返回-1
+*/
+int kmp(const char * str, const char * pat, ssize_t size_of_str)
+{
+    int i = 0, j = 0, size_of_pat = strlen(pat);
+    int next[MIDDLE_SIZE];
+    get_next_of_pat(pat, next);
+
+    while(i < size_of_str && j < size_of_pat)
+    {
+        if(j == -1 || str[i] == pat[j])
+        {
+            ++i;
+            ++j;
+        }
+        else
+        {
+            j = next[j];
+        }
+    }
+    if(j == size_of_pat)
+    {
+        return i - j;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+
+/*
+Description:
+    从输入的buffer字符数组中的下标pos开始，到下一个"\r\n"。
+    获取完整的一行。输入的数字代表限制长度。此函数仅仅可以
+    在
+Return:
+    成功返回0，失败返回1
+*/
+int upload_file(int client_sock, char * buffer, char * arg, http_header_chain headers, ssize_t begin_pos_of_http_content, ssize_t size_of_buffer)
+{
+    ssize_t content_length = 0;
+    ssize_t temp_pos = 0;
     char temp[MAX_SIZE];
-    //begin_pos_of_http_content 很重要
-    //从首部行Content-Type中获得分隔符boundary
+    char boundary[MIDDLE_SIZE];
+    char filename[MIDDLE_SIZE];
+    char * char_pointer;
+
+    //首先从首部行Content-Type中获得分隔符boundary
+    //执行以下函数，temp数组中存储的是名字为Content-Type的首部行的，首部行内容
     get_http_header_content("Content-Type", temp, &headers, MAX_SIZE);
+    // 提取出temp数组中的boundary
+    char_pointer = strstr(temp, "boundary");
+    char_pointer = char_pointer + 9;
+    while((*char_pointer) != '\r')
+    {
+        boundary[temp_pos++] = (*char_pointer);
+        char_pointer = char_pointer + 1;
+    }
+    boundary[temp_pos] = '\0';
+    // boundary之前还会多两个"-"
+    strncpy(temp, boundary, sizeof(temp) - 1);
+    temp[strlen(boundary)] = '\0';
+    strncpy(boundary, "--", sizeof(boundary) - 1);
+    boundary[2] = '\0';
+    strncat(boundary, temp, sizeof(boundary) - strlen(boundary) - 1);
+    boundary[strlen(temp)] = '\0';
+    printf("boundary: %s \n", boundary);
+
+
+    //begin_pos_of_http_content很重要, HTTP数据包在这一点之后就是http数据包的实体部分
+    //使用pos_of_buffer来显示现在读取的buffer的位置
     ssize_t pos_of_buffer = begin_pos_of_http_content;
+    // 一次写入文件的量
+    ssize_t written_size = 0;
+
+
+    //首先读取第一行，这里第一行是boundary
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
+    //假定浏览器发过来的POST请求都是关于上传文件的
+    //那么第二行一定包含了文件名这一信息，
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
+    //从temp数组中提取文件名字
+    temp_pos = 0;
+    char_pointer = strstr(temp, "filename");
+    char_pointer = char_pointer + 10;
+    while ( (*char_pointer) != '\"')
+    {
+        filename[temp_pos++] = (*char_pointer);
+        char_pointer = char_pointer + 1;
+    }
+    filename[temp_pos] = '\0';
+    strncpy(temp, arg, sizeof(temp) - 1);
+    strncat(temp, "/", sizeof(temp) - strlen(temp) - 1);
+    strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
+
+    if( access(temp, F_OK) != -1)
+    {
+        //这个文件已经存在了，就给文件名前面加上"new_"
+
+        //strncpy(temp, "new_", sizeof(temp) - 1);
+        //strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
+        //strncpy(filename, temp, sizeof(filename) - 1);
+        //strncpy(temp, arg, sizeof(temp) - 1);
+        //strncat(temp, "/", sizeof(temp) - strlen(temp) - 1);
+        //strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
+
+        //这个文件已经存在了，就不让上传了
+        strncpy(temp, "/cgi-bin", sizeof(temp));
+        strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
+        response_cgi(client_sock, temp);
+
+        return 0;
+    }
+
+    strncpy(filename, temp, sizeof(filename));
+
+    //根据文件名，创建文件
+    int fd = open(filename, O_CREAT | O_WRONLY);
+    
+
+    //第三行是文件类型信息
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
+
+    //第四行是空行
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
-    pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
-    int n = write(fd, temp, strlen(temp) );
+
+    //从第5行开始时文件内容，直到遇见boundary结束
+    while ( 1 )
+    {
+        // 查找在buffer数组中pos_of_buffer位置之后是否存在
+        // boundary，存在证明file结尾在此buffer中，不存在
+        // 证明还需要再读socket中的数据
+        int pos_of_boundary_after_pos_of_buffer = kmp(buffer + pos_of_buffer, boundary, size_of_buffer - pos_of_buffer);
+
+        // file的结尾不存在于此buffer中
+        if(pos_of_boundary_after_pos_of_buffer == -1)
+        {
+            written_size =  write(fd, buffer + pos_of_buffer, size_of_buffer - pos_of_buffer);
+            printf("写入的数量: %d\n", written_size);
+            if( written_size == -1 )
+            {
+                //删除文件并提示出错
+                close(fd);
+                unlink(filename);
+                break;
+            }
+            else
+            {
+                //读socket中的数据
+                int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
+                printf("从socket中读出的量：%d\n" , size_of_buffer);
+                pos_of_buffer = 0;
+            }
+            
+        }
+        else //file的结尾存在于此buffer中
+        {
+            written_size = write(fd, buffer + pos_of_buffer, pos_of_boundary_after_pos_of_buffer);
+            printf("写入的数量: %d\n", written_size);
+            if( written_size == -1)
+            {
+                //删除文件并提示出错
+                close(fd);
+                unlink(filename);
+                break;
+            }
+            else
+            {
+                //关闭文件
+                close(fd);
+                break;
+            }
+        }
+    }
+
+    //重新显示这个页面
+    strncpy(temp, "/cgi-bin", sizeof(temp));
+    strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
+    response_cgi(client_sock, temp);
+    return 0;
 }
 
 /*
@@ -246,11 +492,15 @@ Parameters:
 Return:
     NULL
 */
-void do_Method(int client_sock,char *buffer)
+void do_Method(int client_sock)
 {
-      
+    char buffer[MAX_SIZE];
     char methods[4]; //GET or POST
     char file_path[NAME_LEN];
+
+    // 从socket中读数据到buffer中，因为可能
+    // 存在二进制数据,所以要记录读到的字节数
+    ssize_t size_of_buffer = read(client_sock, buffer, MAX_SIZE);
     sscanf(buffer,"%s %s",methods,file_path);
     printf("%s %s\n",methods,file_path);
 
@@ -258,6 +508,7 @@ void do_Method(int client_sock,char *buffer)
     http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
     //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
     ssize_t begin_pos_of_http_content = get_http_headers(buffer,&headers);
+    //print_http_headers(&headers);
 
     switch(methods[0])
     {
@@ -268,16 +519,17 @@ void do_Method(int client_sock,char *buffer)
                 case '?':
                     response_download(client_sock,file_path);
                     break;
+                case 'c':
+                    response_cgi(client_sock, file_path);
+                    break;
                 default:
-                    response_f(client_sock,file_path);
+                    response_html(client_sock,file_path);
             }
             break;
             // POST
         case 'P':
-            upload_file(buffer, headers, begin_pos_of_http_content);
+            upload_file(client_sock, buffer, file_path, headers, begin_pos_of_http_content, size_of_buffer);
             break;
     }
     delete_http_headers(&headers);
 }
-
-
