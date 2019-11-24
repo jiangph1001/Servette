@@ -92,7 +92,7 @@ Parameters:
 Return:
     NULL
 */
-void response_f(int client_sock, char *file)
+void response_html(int client_sock, char *file)
 {
     int fd;
     char buf[MAX_SIZE],header[MAX_SIZE];
@@ -102,7 +102,7 @@ void response_f(int client_sock, char *file)
         //如果没有指定文件，则默认打开index.html
         sprintf(file,"%s%s",DIR,DEFAULT_FILE);
     }
-    else  if(strcmp(file,"/favicon.ico")==0)
+    else if(strcmp(file,"/favicon.ico")==0)
     {
         //对浏览器请求图标的行为返回一个空包
         //如果不返回包，tcp包会多次超时重传
@@ -138,36 +138,60 @@ void response_f(int client_sock, char *file)
                 write(client_sock,buf,size);
             }
         }
-        char *ls_res = (char *)malloc(MAX_SIZE*sizeof(char));
-        char *phead = "<p  style=\"white-space: pre-line;font-size: larger\">";
-        const char *tail = "</body></html>";
-        run_command("ls -a",ls_res);
-        //write(client_sock,phead,strlen(phead));
-        //write(client_sock,ls_res,strlen(ls_res));
-        write(client_sock, "<hr/ ><pre>", strlen("<hr/ ><pre>"));
-
-        //显示出此文件夹下各个文件
-        //__strtok_r是线程安全的字符串分割函数，以"\n"字符分割字符串
-        //one_file_name是被分割的一个子串的开始,rest_of_ls_res是剩余
-        //字符串的开始
-        char * rest_of_ls_res = NULL;
-        char * one_file_name = __strtok_r(ls_res, "\n", &rest_of_ls_res);
-        while (one_file_name)
-        {
-            write(client_sock, "<a href=\"", strlen("<a href=\""));
-            write(client_sock, one_file_name, strlen(one_file_name));
-            write(client_sock, "\">", strlen("\">"));
-            write(client_sock, one_file_name, strlen(one_file_name));
-            write(client_sock, "</a>\n", strlen("</a>\n"));
-            one_file_name = __strtok_r(NULL, "\n", &rest_of_ls_res);
-        }
-        
-        write(client_sock, "</pre><hr/ >", strlen("</pre><hr/ >"));
-        write(client_sock,tail,strlen(tail));
-        free(ls_res);
     }
 }
 
+
+/*
+Description:
+    实现简单的CGI功能,真实的CGI复杂得多
+    处理列出文件列表的请求/cgi-bin/[一个目录]
+Parameters:
+    int client_sock [IN] 客户端的socket
+    char *arg: [IN] 解析的参数
+Return:
+    NULL
+*/
+void response_cgi(int client_sock,char *arg)
+{
+    ssize_t size = -1;
+    char html[MAX_SIZE],header[MAX_SIZE];
+    char dir_name[NAME_LEN];
+    if(sscanf(arg,"/cgi-bin%s",dir_name)==EOF)
+    {
+        //匹配失败！
+        printf("error:%s\n",arg);
+        construct_header(header,404,"text/html");
+        write(client_sock,header,strlen(header));
+        return;
+    }
+    else
+    {
+        //调用CGI程序，完成文件列表显示页面的构造
+        char cmd[MIDDLE_SIZE];
+        strncpy(cmd, "python3 cgi-bin/filelist.py ", sizeof(cmd) - 1);
+        strncat(cmd, dir_name, sizeof(cmd) - strlen(cmd) - 1);
+        FILE * fp = popen(cmd, "r");
+        if(!fp)
+        {
+            //匹配失败！
+            printf("error:%s\n",arg);
+            construct_header(header,404,"text/html");
+            write(client_sock,header,strlen(header));
+            return;
+        }
+        construct_header(header,200,"text/html");
+        write(client_sock,header,strlen(header));
+        while (fgets(html, sizeof(html), fp) != NULL)
+        {
+            int i = write(client_sock, html, strlen(html) - 1);
+            //注意sizeof("\r\n") == 3，算上了结尾的'\0'
+            i = write(client_sock, "\r\n", sizeof("\r\n") - 1);
+            
+        }
+        pclose(fp);
+    }
+}
 
 /*
 Description:
@@ -315,7 +339,7 @@ Description:
 Return:
     成功返回0，失败返回1
 */
-int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize_t begin_pos_of_http_content, ssize_t size_of_buffer)
+int upload_file(int client_sock, char * buffer, char * arg, http_header_chain headers, ssize_t begin_pos_of_http_content, ssize_t size_of_buffer)
 {
     ssize_t content_length = 0;
     ssize_t temp_pos = 0;
@@ -337,11 +361,11 @@ int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize
     }
     boundary[temp_pos] = '\0';
     // boundary之前还会多两个"-"
-    strncpy(temp, boundary, strlen(boundary));
+    strncpy(temp, boundary, sizeof(temp) - 1);
     temp[strlen(boundary)] = '\0';
-    strncpy(boundary, "--", 2);
+    strncpy(boundary, "--", sizeof(boundary) - 1);
     boundary[2] = '\0';
-    strncat(boundary, temp, strlen(temp));
+    strncat(boundary, temp, sizeof(boundary) - strlen(boundary) - 1);
     boundary[strlen(temp)] = '\0';
     printf("boundary: %s \n", boundary);
 
@@ -368,10 +392,30 @@ int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize
         char_pointer = char_pointer + 1;
     }
     filename[temp_pos] = '\0';
-    printf("filename： %s\n", filename);
+    strncpy(temp, arg, sizeof(temp) - 1);
+    strncat(temp, "/", sizeof(temp) - strlen(temp) - 1);
+    strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
 
-    // 这里要检查文件名是否已经存在了
+    if( access(temp, F_OK) != -1)
+    {
+        //这个文件已经存在了，就给文件名前面加上"new_"
 
+        //strncpy(temp, "new_", sizeof(temp) - 1);
+        //strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
+        //strncpy(filename, temp, sizeof(filename) - 1);
+        //strncpy(temp, arg, sizeof(temp) - 1);
+        //strncat(temp, "/", sizeof(temp) - strlen(temp) - 1);
+        //strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
+
+        //这个文件已经存在了，就不让上传了
+        strncpy(temp, "/cgi-bin", sizeof(temp));
+        strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
+        response_cgi(client_sock, temp);
+
+        return 0;
+    }
+
+    strncpy(filename, temp, sizeof(filename));
 
     //根据文件名，创建文件
     int fd = open(filename, O_CREAT | O_WRONLY);
@@ -401,7 +445,7 @@ int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize
                 //删除文件并提示出错
                 close(fd);
                 unlink(filename);
-                return -1;
+                break;
             }
             else
             {
@@ -421,16 +465,22 @@ int upload_file(int client_sock, char * buffer, http_header_chain headers, ssize
                 //删除文件并提示出错
                 close(fd);
                 unlink(filename);
-                return -1;
+                break;
             }
             else
             {
                 //关闭文件
                 close(fd);
-                return 0;
+                break;
             }
         }
     }
+
+    //重新显示这个页面
+    strncpy(temp, "/cgi-bin", sizeof(temp));
+    strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
+    response_cgi(client_sock, temp);
+    return 0;
 }
 
 /*
@@ -469,13 +519,16 @@ void do_Method(int client_sock)
                 case '?':
                     response_download(client_sock,file_path);
                     break;
+                case 'c':
+                    response_cgi(client_sock, file_path);
+                    break;
                 default:
-                    response_f(client_sock,file_path);
+                    response_html(client_sock,file_path);
             }
             break;
             // POST
         case 'P':
-            upload_file(client_sock, buffer, headers, begin_pos_of_http_content, size_of_buffer);
+            upload_file(client_sock, buffer, file_path, headers, begin_pos_of_http_content, size_of_buffer);
             break;
     }
     delete_http_headers(&headers);
