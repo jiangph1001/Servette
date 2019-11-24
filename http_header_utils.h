@@ -165,9 +165,28 @@ ssize_t get_http_header_content(const char * name, char * content, http_header_c
             if( !strcmp(name, temp_header->name) )
             {
                 strncpy(content, temp_header->content, strlen(temp_header->content));
+                content[strlen(temp_header->content)] = '\0';
                 return 1;
             }
             temp_header = temp_header -> next;
         }
         return 0;
+}
+
+/*
+Description:
+    headers参数是一个首部行链表，
+    函数作用是打印所有的首部行
+Return:
+    void
+*/
+void print_http_headers(http_header_chain *headers)
+{
+        http_header temp_header = (*headers)->first_header;
+        // 遍历首部行
+        while(temp_header)
+        {
+            printf("%s %s\n", temp_header->name, temp_header->content);
+            temp_header = temp_header -> next;
+        }
 }
