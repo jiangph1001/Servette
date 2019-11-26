@@ -64,8 +64,10 @@ void construct_header(char *header,int status,const char *type)
             break;
     }
     sprintf(header,"HTTP/1.1 %d %s\r\n",status,msg);
+    sprintf(header,"%sServer:servette-UCAS\r\n",header);
     sprintf(header,"%sContent-Type:%s\r\n",header,type);
-    sprintf(header,"%sConnection: keep-alive\r\n\n",header);
+    sprintf(header,"%sConnection: keep-alive\r\n",header);
+    sprintf(header,"%s\r\n",header);
 
     printf("%s\n",header);
 
@@ -85,7 +87,10 @@ void construct_download_header(char *header,int status,const char * file_name)
     sprintf(header,"HTTP/1.1 %d ok\r\n",status);//暂时忽略状态信息，默认ok
     //Content-Type:application/octet-stream为下载类型
     sprintf(header,"%sContent-Type:application/octet-stream\r\n",header);
-    sprintf(header,"%sContent-Disposition: attachment;filename=%s\r\n\n",header,file_name);
+    sprintf(header,"%sContent-Disposition: attachment;filename=%s\r\n",header,file_name);
+    sprintf(header,"%sTransfer-Encoding:chunked\r\n",header);//下载文件通过chunk传输
+    sprintf(header,"%s\r\n",header);
+
     printf("%s\n",header);
 }
 
@@ -213,6 +218,7 @@ void response_cgi(int client_sock,char *arg)
 /*
 Description:
     处理下载文件的请求/?download=[文件名]
+    目前暂时弃用此函数
 Parameters:
     int client_sock [IN] 客户端的socket
     char *arg: [IN] 解析的参数
@@ -256,6 +262,59 @@ void response_download(int client_sock,char *arg)
     printf("\n");
 }
 
+
+/*
+Description:
+    处理下载文件的请求/?download=[文件名]
+    以chunk分块传输
+Parameters:
+    int client_sock [IN] 客户端的socket
+    char *arg: [IN] 解析的参数
+Return:
+    NULL
+*/
+void response_download_chunk(int client_sock,char *arg)
+{
+    int fd;
+    ssize_t size = -1;
+    char buf[MAX_SIZE],header[MAX_SIZE],*chunk_head;
+    char file_name[NAME_LEN];
+    if(sscanf(arg,"/?download=%s",file_name)==EOF)
+    {
+        //匹配失败！
+        printf("error:%s\n",arg);
+        construct_header(header,404,"text/html");
+        write(client_sock,header,strlen(header));
+        return;
+    }
+    fd = open(file_name,O_RDONLY);
+    if(fd == -1)
+    {
+        construct_header(header,404,"text/html");
+        write(client_sock,header,strlen(header));
+        return;
+    }
+    //构建下载的相应头部
+    printf("\tdownloading %s\n",file_name);
+    construct_download_header(header,200,file_name); 
+    write(client_sock,header,strlen(header));
+    while(size)
+    {
+        //size代表读取的字节数
+        size = read(fd,buf,MAX_SIZE);
+        chunk_head = (char *)malloc(MIN_SIZE*sizeof(char));
+        sprintf(chunk_head,"%x\r\n",size);//需要转换为16进制
+        send(client_sock,chunk_head,strlen(chunk_head),0);
+        if(size > 0)
+        {
+            send(client_sock,buf,size,0);
+        }
+        send(client_sock,CRLF,strlen(CRLF),0);
+        free(chunk_head);
+    }
+    send(client_sock,CRLF,strlen(CRLF),0);
+    printf("\n");
+}
 
 /*
 Description:
@@ -518,12 +577,7 @@ void *do_Method(void *p_client_sock)
     ssize_t size_of_buffer = read(client_sock, buffer, MAX_SIZE);
     //buffer是接收到的请求，需要处理
     //从buffer中分离出请求的方法和请求的参数
-    sscanf(buffer,"%s %s",methods,file_path);
-    #ifdef _DEBUG
-    pthread_t tid = pthread_self();
-    printf("pid: %d:%s %s\n",(int)tid%10000,methods,file_path);
-    #endif
-    //printf("%s %s\n",methods,file_path);
+    sscanf(buffer,"%s %s",methods,file_path);  
 
     //获得所有的首部行组成的链表
     http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
@@ -538,7 +592,7 @@ void *do_Method(void *p_client_sock)
             switch(file_path[1]) 
             {
                 case '?':
-                    response_download(client_sock,file_path);
+                    response_download_chunk(client_sock,file_path);
                     break;
                 case 'c':
                     response_cgi(client_sock, file_path);
