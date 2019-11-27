@@ -7,8 +7,8 @@
 #include <errno.h>
 #include <pthread.h>
 
-#define __http_header_name_len 30
-#define __http_header_content_len 200
+#define HTTP_HEADER_NAME_LEN 30
+#define HTTP_HEADER_CONTENT_LEN 200
 // 请求头首部行结构体
 // name表示此首部行的名字
 // content表示此首部行的内容
@@ -16,8 +16,8 @@
 // 比如 "GET / HTTP/1.1", name字段是请求方法
 typedef struct __http_header
 {
-    char name[__http_header_name_len];
-    char content[__http_header_content_len];
+    char name[HTTP_HEADER_NAME_LEN];
+    char content[HTTP_HEADER_CONTENT_LEN];
     struct __http_header * next;
 } _http_header,* http_header;
 
@@ -34,18 +34,18 @@ Description:
 Return:
     http报文可能存在的内容部分的位置
 */
-ssize_t get_http_headers(const char * buffer, http_header_chain *headers)
+int get_http_headers(const char * buffer, http_header_chain *headers)
 {
     // 第一条http首部行
     http_header http_header_first = NULL;
     // 用于构建http_header链表的中间量
     http_header temp_header = NULL;
     // 首部行总量
-    ssize_t num_of_http_header = 0;
+    int num_of_http_header = 0;
     // 当前在buffer中扫描的位置
-    ssize_t pos_of_buffer = 0;
+    int pos_of_buffer = 0;
     // 下一条首部行在buffer中的位置
-    ssize_t next_http_header_begin_pos = 0;
+    int next_http_header_begin_pos = 0;
 
     int len_of_buffer = strlen(buffer);
 
@@ -72,10 +72,10 @@ ssize_t get_http_headers(const char * buffer, http_header_chain *headers)
                 temp_header->next =NULL;
             }
             //在temp_header中放入数据，temp_pos作为中间量
-            ssize_t temp_pos = 0;
+            int temp_pos = 0;
 
             // 首先获得首部行的名字
-            for( ; temp_pos < __http_header_name_len; )
+            for( ; temp_pos < HTTP_HEADER_NAME_LEN; )
             {
                 if(buffer[next_http_header_begin_pos] == ' ' || buffer[next_http_header_begin_pos] == ':')
                     break;
@@ -92,7 +92,7 @@ ssize_t get_http_headers(const char * buffer, http_header_chain *headers)
 
             temp_pos = 0;
             // 再获得首部行的内容，
-            for( ; temp_pos < __http_header_content_len; )
+            for( ; temp_pos < HTTP_HEADER_CONTENT_LEN; )
             {
                 if(buffer[next_http_header_begin_pos] == '\r')
                     break;
@@ -156,7 +156,7 @@ Description:
 Return:
     返回1表示找到，返回0表示没找到
 */
-ssize_t get_http_header_content(const char * name, char * content, http_header_chain *headers, ssize_t limit)
+int get_http_header_content(const char * name, char * content, http_header_chain *headers, int limit)
 {
         http_header temp_header = (*headers)->first_header;
         // 遍历首部行

@@ -6,7 +6,7 @@
 #define DEFAULT_FILE "index.html"
 #define CGISTR "cgi-bin/"
 #define LOCALDIR "/"
-#define DIR "www/"
+#define HTML_DIR "www/"
 #define MIN_SIZE 16
 #define MAX_THRAD 5
 //#define _DEBUG

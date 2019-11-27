@@ -42,14 +42,14 @@ def out_put_files_and_dirs(dir_path):
     # 如果当前目录不是"/file",列出上一级目录..
     if dir_path != "/file":
         father_path = os.path.dirname(dir_path)
-        print("<a href=\"/cgi-bin" + father_path + "\">上一级</a>", end = '')
+        print("<a href=\"/?cgi-bin=" + father_path + "\">上一级</a>", end = '')
         print("                                          ", end = '')
         print("目录   " + "-")
     # 列出当前文件夹下所有文件和目录
     for filename in os.listdir(dir_path):
         # 是文件夹，可以跳转
         if os.path.isdir(dir_path + "/" + filename):
-            print("<a href=\"/cgi-bin" + dir_path + "/" + filename + "\">" + filename + "</a>", end = '')
+            print("<a href=\"/?cgi-bin=" + dir_path + "/" + filename + "\">" + filename + "</a>", end = '')
             print("                                          ", end = '')
             print("目录   " + "-")
         # 是文件，提供下载功能
