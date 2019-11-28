@@ -13,7 +13,8 @@
 #include "http_header_utils.h"
 #include "filemanage.h"
 
-
+// 上传下载文件夹位置
+extern const char * file_base_path;
 
 pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 /*
@@ -64,6 +65,7 @@ void construct_header(char *header,int status,const char *type)
             break;
     }
     sprintf(header,"HTTP/1.1 %d %s\r\n",status,msg);
+    sprintf(header,"%sContent-Type:%s\r\n\n",header,type);
     sprintf(header,"%sServer:servette-UCAS\r\n",header);
     sprintf(header,"%sContent-Type:%s\r\n",header,type);
     sprintf(header,"%sConnection: keep-alive\r\n",header);
@@ -108,11 +110,11 @@ void response_webpage(int client_sock, char *file)
 {
     int fd;
     char buf[MAX_SIZE],header[MAX_SIZE];
-    ssize_t size = -1;
+    int size = -1;
     if(strcmp(file,"/")==0)
     {
         //如果没有指定文件，则默认打开index.html
-        sprintf(file,"%s%s",DIR,DEFAULT_FILE);
+        sprintf(file,"%s%s",HTML_DIR,DEFAULT_FILE);
     }
     else if(strcmp(file,"/favicon.ico")==0)
     {
@@ -125,7 +127,7 @@ void response_webpage(int client_sock, char *file)
     else
     {
         char new_file[NAME_LEN];
-        sprintf(new_file,"%s%s",DIR,file);
+        sprintf(new_file,"%s%s",HTML_DIR,file);
         file = new_file;
     }
     //读取文件
@@ -167,7 +169,7 @@ void response_webpage(int client_sock, char *file)
 /*
 Description:
     实现简单的CGI功能,真实的CGI复杂得多
-    处理列出文件列表的请求/cgi-bin/[一个目录]
+    处理列出文件列表的请求/?cgi-bin=[一个目录]
 Parameters:
     int client_sock [IN] 客户端的socket
     char *arg: [IN] 解析的参数
@@ -176,10 +178,10 @@ Return:
 */
 void response_cgi(int client_sock,char *arg)
 {
-    ssize_t size = -1;
+    int size = -1;
     char html[MAX_SIZE],header[MAX_SIZE];
     char dir_name[NAME_LEN];
-    if(sscanf(arg,"/cgi-bin%s",dir_name)==EOF)
+    if(sscanf(arg,"/?cgi-bin=%s",dir_name)==EOF)
     {
         //匹配失败！
         printf("error:%s\n",arg);
@@ -191,8 +193,10 @@ void response_cgi(int client_sock,char *arg)
     {
         //调用CGI程序，完成文件列表显示页面的构造
         char cmd[MIDDLE_SIZE];
-        strncpy(cmd, "python3 cgi-bin/filelist.py ", sizeof(cmd) - 1);
+        strncpy(cmd, "cgi-bin/filelist ", sizeof(cmd) - 1);
         strncat(cmd, dir_name, sizeof(cmd) - strlen(cmd) - 1);
+        strncat(cmd, " ", sizeof(cmd) - strlen(cmd) - 1);
+        strncat(cmd, file_base_path, sizeof(cmd) - strlen(cmd) - 1);
         FILE * fp = popen(cmd, "r");
         if(!fp)
         {
@@ -206,6 +210,9 @@ void response_cgi(int client_sock,char *arg)
         write(client_sock,header,strlen(header));
         while (fgets(html, sizeof(html), fp) != NULL)
         {
+            // 这里可能还有错误，写的时候对端的TCP连接已经关闭了
+            // 会引起servette的异常退出
+
             int i = write(client_sock, html, strlen(html) - 1);
             //注意sizeof("\r\n") == 3，算上了结尾的'\0'
             i = write(client_sock, "\r\n", sizeof("\r\n") - 1);
@@ -228,7 +235,7 @@ Return:
 void response_download(int client_sock,char *arg)
 {
     int fd;
-    ssize_t size = -1;
+    int size = -1;
     char buf[MAX_SIZE],header[MAX_SIZE];
     char file_name[NAME_LEN];
     if(sscanf(arg,"/?download=%s",file_name)==EOF)
@@ -324,9 +331,9 @@ Description:
 Return:
     返回下一行第一个字符的位置
 */
-ssize_t get_next_line(char * temp, const char * buffer, ssize_t pos_of_buffer, ssize_t limit)
+int get_next_line(char * temp, const char * buffer, int pos_of_buffer, int limit)
 {
-    ssize_t pos_of_temp = 0;
+    int pos_of_temp = 0;
     for( ; pos_of_temp < limit; )
     {
         if( buffer[pos_of_buffer] == '\r' || buffer[pos_of_buffer + 1] == '\n' )
@@ -373,12 +380,12 @@ Description:
     KMP算法：
     const char * str [IN] 被查找的主串，可以是二进制形式的
     const char * pat [IN] 要查找的模式串，非二进制形式
-    ssize_t size_of_str [IN] 主串的长度
+    int size_of_str [IN] 主串的长度
 Return:
     存在，返回模式串在字串中的位置
     不存在，返回-1
 */
-int kmp(const char * str, const char * pat, ssize_t size_of_str)
+int kmp(const char * str, const char * pat, int size_of_str)
 {
     int i = 0, j = 0, size_of_pat = strlen(pat);
     int next[MIDDLE_SIZE];
@@ -415,10 +422,10 @@ Description:
 Return:
     成功返回0，失败返回1
 */
-int upload_file(int client_sock, char * buffer, char * arg, http_header_chain headers, ssize_t begin_pos_of_http_content, ssize_t size_of_buffer)
+int upload_file(int client_sock, char * buffer, char * arg, http_header_chain headers, int begin_pos_of_http_content, int size_of_buffer)
 {
-    ssize_t content_length = 0;
-    ssize_t temp_pos = 0;
+    int content_length = 0;
+    int temp_pos = 0;
     char temp[MAX_SIZE];
     char boundary[MIDDLE_SIZE];
     char filename[MIDDLE_SIZE];
@@ -429,6 +436,16 @@ int upload_file(int client_sock, char * buffer, char * arg, http_header_chain he
     get_http_header_content("Content-Type", temp, &headers, MAX_SIZE);
     // 提取出temp数组中的boundary
     char_pointer = strstr(temp, "boundary");
+
+    // 这里可能空指针
+    if( char_pointer == NULL )
+    {
+        strncpy(temp, "/?cgi-bin=", sizeof(temp));
+        strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
+        response_cgi(client_sock, temp);
+        return 0;
+    }
+
     char_pointer = char_pointer + 9;
     while((*char_pointer) != '\r')
     {
@@ -448,9 +465,9 @@ int upload_file(int client_sock, char * buffer, char * arg, http_header_chain he
 
     //begin_pos_of_http_content很重要, HTTP数据包在这一点之后就是http数据包的实体部分
     //使用pos_of_buffer来显示现在读取的buffer的位置
-    ssize_t pos_of_buffer = begin_pos_of_http_content;
+    int pos_of_buffer = begin_pos_of_http_content;
     // 一次写入文件的量
-    ssize_t written_size = 0;
+    int written_size = 0;
 
 
     //首先读取第一行，这里第一行是boundary
@@ -461,6 +478,17 @@ int upload_file(int client_sock, char * buffer, char * arg, http_header_chain he
     //从temp数组中提取文件名字
     temp_pos = 0;
     char_pointer = strstr(temp, "filename");
+    
+    // 这里可能空指针
+    if( char_pointer == NULL )
+    {
+        strncpy(temp, "/?cgi-bin=", sizeof(temp));
+        strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
+        response_cgi(client_sock, temp);
+        return 0;
+    }
+    
+
     char_pointer = char_pointer + 10;
     while ( (*char_pointer) != '\"')
     {
@@ -484,10 +512,9 @@ int upload_file(int client_sock, char * buffer, char * arg, http_header_chain he
         //strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
 
         //这个文件已经存在了，就不让上传了
-        strncpy(temp, "/cgi-bin", sizeof(temp));
+        strncpy(temp, "/?cgi-bin=", sizeof(temp));
         strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
         response_cgi(client_sock, temp);
-
         return 0;
     }
 
@@ -553,7 +580,7 @@ int upload_file(int client_sock, char * buffer, char * arg, http_header_chain he
     }
 
     //重新显示这个页面
-    strncpy(temp, "/cgi-bin", sizeof(temp));
+    strncpy(temp, "/?cgi-bin=", sizeof(temp));
     strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
     response_cgi(client_sock, temp);
     return 0;
@@ -571,10 +598,17 @@ void *do_Method(void *p_client_sock)
 {
     //另当前线程分离
     pthread_detach(pthread_self());
-    char methods[4]; //GET or POST
-    char buffer[MAX_SIZE],file_path[NAME_LEN];
+    char methods[5]; //GET or POST
+    char buffer[MAX_SIZE],file_path[NAME_LEN],temp[MIDDLE_SIZE];
     int client_sock = *(int*) p_client_sock;
-    ssize_t size_of_buffer = read(client_sock, buffer, MAX_SIZE);
+    int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
+
+    // 有时会有空的数据包，原因还不清楚
+    if(size_of_buffer == 0)
+    {
+        printf("空的数据包?\n",methods);
+    }
+
     //buffer是接收到的请求，需要处理
     //从buffer中分离出请求的方法和请求的参数
     sscanf(buffer,"%s %s",methods,file_path);  
@@ -582,27 +616,26 @@ void *do_Method(void *p_client_sock)
     //获得所有的首部行组成的链表
     http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
     //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
-    ssize_t begin_pos_of_http_content = get_http_headers(buffer,&headers);
+    int begin_pos_of_http_content = get_http_headers(buffer,&headers);
     //print_http_headers(&headers);
 
     switch(methods[0])
     {
         // GET
         case 'G':
-            switch(file_path[1]) 
+            if( sscanf(file_path, "/?download=%s", temp) == 1 )
             {
-                case '?':
-                    response_download_chunk(client_sock,file_path);
-                    break;
-                case 'c':
-                    response_cgi(client_sock, file_path);
-                    break;
-                default:
-                    response_webpage(client_sock,file_path);
-
+                response_download(client_sock, file_path);
+            }
+            else if( sscanf(file_path, "/?cgi-bin=%s", temp) == 1 )
+            {
+                response_cgi(client_sock, file_path);
+            }
+            else
+            {
+                response_webpage(client_sock, file_path);
             }
 
-            
             //测试长链接
             #ifdef _DEBUG
             int cnt = 1;

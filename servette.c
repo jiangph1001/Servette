@@ -9,8 +9,10 @@
 //#include <string.h>
 //#include <errno.h>
 #include <pthread.h>
-
 #include "response.h"
+
+// 上传下载文件夹位置
+const char * file_base_path;
 
 /*
 Description:
@@ -61,7 +63,7 @@ int main(int argc, char *argv[])
 {   
     int server_sock,client_sock;
     server_sock = start_server();
-
+    file_base_path = "/file";
     while(1)
     {
         struct sockaddr_in client_addr;
