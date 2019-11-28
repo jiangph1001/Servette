@@ -574,69 +574,45 @@ void *do_Method(void *p_client_sock)
     char methods[4]; //GET or POST
     char buffer[MAX_SIZE],file_path[NAME_LEN];
     int client_sock = *(int*) p_client_sock;
-    ssize_t size_of_buffer = read(client_sock, buffer, MAX_SIZE);
-    //buffer是接收到的请求，需要处理
-    //从buffer中分离出请求的方法和请求的参数
-    sscanf(buffer,"%s %s",methods,file_path);  
-
-    //获得所有的首部行组成的链表
-    http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
-    //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
-    ssize_t begin_pos_of_http_content = get_http_headers(buffer,&headers);
-    //print_http_headers(&headers);
-
-    switch(methods[0])
+    while(1)
     {
-        // GET
-        case 'G':
-            switch(file_path[1]) 
-            {
-                case '?':
-                    response_download_chunk(client_sock,file_path);
-                    break;
-                case 'c':
-                    response_cgi(client_sock, file_path);
-                    break;
-                default:
-                    response_webpage(client_sock,file_path);
+        ssize_t size_of_buffer = read(client_sock, buffer, MAX_SIZE);
+        //buffer是接收到的请求，需要处理
+        //从buffer中分离出请求的方法和请求的参数
+        sscanf(buffer,"%s %s",methods,file_path);  
 
-            }
+        //获得所有的首部行组成的链表
+        http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
+        //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
+        ssize_t begin_pos_of_http_content = get_http_headers(buffer,&headers);
+        //print_http_headers(&headers);
+        get_http_header_content()
 
-            
-            //测试长链接
-            #ifdef _DEBUG
-            int cnt = 1;
-            char buf[30];
-            while(1)
-            {
-                sprintf(buf,"%d\n",cnt);
-                if(cnt%2000==0)
+        switch(methods[0])
+        {
+            // GET
+            case 'G':
+                switch(file_path[1]) 
                 {
-                    write(client_sock,buf,strlen(buf));
+                    case '?':
+                        response_download_chunk(client_sock,file_path);
+                        break;
+                    case 'c':
+                        response_cgi(client_sock, file_path);
+                        break;
+                    default:
+                        response_webpage(client_sock,file_path);
                 }
-                else
-                {
-                    int ret = write(client_sock,"",1);
-                    if(ret == -1)
-                    {
-                        printf("write error: %s\n",strerror(errno));
-                    }
-                }
-                cnt++;
-                usleep(500);
-            }
-            #endif
-            //测试结束
-
-            break;
-            // POST
-        case 'P':
-            upload_file(client_sock, buffer, file_path, headers, begin_pos_of_http_content, size_of_buffer);
-            break;
-        default:
-            printf("暂不支持的方法:%s\n",methods);
+                break;
+                // POST
+            case 'P':
+                upload_file(client_sock, buffer, file_path, headers, begin_pos_of_http_content, size_of_buffer);
+                break;
+            default:
+                printf("暂不支持的方法:%s\n",methods);
+        }
+        delete_http_headers(&headers);
     }
-    delete_http_headers(&headers);
     close(client_sock);
 }
 
