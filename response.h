@@ -16,25 +16,6 @@
 // 上传下载文件夹位置
 extern const char * file_base_path;
 
-pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
-/*
-//临时测试用
-void response_test(int client_sock)
-{
-    const char *echo_str = "HTTP/1.1 200 ok\r\n";
-    const char *html_head = "<h1>Naive File Server</h1>\n";
-    const char *tail = "</p></html>";
-    char *ls_res = (char *)malloc(MAX_SIZE*sizeof(char));
-    char *phead = "<p  style=\"white-space: pre-line;font-size: larger\">";
-    run_command("ls -l",ls_res);
-    write(client_sock,echo_str,strlen(echo_str));
-    write(client_sock,html_head,strlen(html_head));
-    write(client_sock,phead,strlen(phead));
-    write(client_sock,ls_res,strlen(ls_res));
-    write(client_sock,tail,strlen(tail));
-}
-*/
-
 /*
 Description:
     生成响应头
@@ -65,9 +46,8 @@ void construct_header(char *header,int status,const char *type)
             break;
     }
     sprintf(header,"HTTP/1.1 %d %s\r\n",status,msg);
-    sprintf(header,"%sContent-Type:%s\r\n\n",header,type);
-    sprintf(header,"%sServer:servette-UCAS\r\n",header);
     sprintf(header,"%sContent-Type:%s\r\n",header,type);
+    sprintf(header,"%sServer:servette-UCAS\r\n",header);
     sprintf(header,"%sConnection: keep-alive\r\n",header);
     sprintf(header,"%s\r\n",header);
 
@@ -76,7 +56,7 @@ void construct_header(char *header,int status,const char *type)
 }
 /*
 Description:
-    生成响应头for Download！
+    生成响应头for Download
 Parameters:
     char *header [OUT] 输出的响应头
     int status [IN] 状态码
@@ -328,6 +308,8 @@ Description:
     从输入的buffer字符数组中的下标pos开始，到下一个"\r\n"。
     获取完整的一行。输入的数字代表限制长度。此函数仅仅可以
     在
+Parameters:
+
 Return:
     返回下一行第一个字符的位置
 */
@@ -349,7 +331,8 @@ int get_next_line(char * temp, const char * buffer, int pos_of_buffer, int limit
 
 /*
 Description:
-    构造KMP算法中模式串的next数组：
+    构造KMP算法中模式串的next数组
+Parameters:
     const char * pat [IN] 模式串
     int * next [IN] 模式串的next数组
 Return:
@@ -377,7 +360,8 @@ void get_next_of_pat(const char * pat, int * next)
 
 /*
 Description:
-    KMP算法：
+    KMP算法
+Parameters:
     const char * str [IN] 被查找的主串，可以是二进制形式的
     const char * pat [IN] 要查找的模式串，非二进制形式
     int size_of_str [IN] 主串的长度
@@ -419,6 +403,8 @@ Description:
     从输入的buffer字符数组中的下标pos开始，到下一个"\r\n"。
     获取完整的一行。输入的数字代表限制长度。此函数仅仅可以
     在
+Parameters:
+
 Return:
     成功返回0，失败返回1
 */
@@ -588,9 +574,10 @@ int upload_file(int client_sock, char * buffer, char * arg, http_header_chain he
 
 /*
 Description:
-    对请求的内容进行处理，分割为GET和POST请求
+    从客户端读取请求并对请求的内容进行处理
+    分割为GET和POST请求
 Parameters:
-    void *client_sock [IN] 客户端的socket
+    void *p_client_sock [IN] 客户端的socket
 Return:
     NULL
 */
@@ -599,7 +586,7 @@ void *do_Method(void *p_client_sock)
     //另当前线程分离
     pthread_detach(pthread_self());
     char methods[5]; //GET or POST
-    char buffer[MAX_SIZE],file_path[NAME_LEN],temp[MIDDLE_SIZE];
+    char buffer[MAX_SIZE],message[MIDDLE_SIZE],temp[MIDDLE_SIZE];
     int client_sock = *(int*) p_client_sock;
     int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
 
@@ -611,7 +598,7 @@ void *do_Method(void *p_client_sock)
 
     //buffer是接收到的请求，需要处理
     //从buffer中分离出请求的方法和请求的参数
-    sscanf(buffer,"%s %s",methods,file_path);  
+    sscanf(buffer,"%s %s",methods,message);  
 
     //获得所有的首部行组成的链表
     http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
@@ -623,17 +610,17 @@ void *do_Method(void *p_client_sock)
     {
         // GET
         case 'G':
-            if( sscanf(file_path, "/?download=%s", temp) == 1 )
+            if( sscanf(message, "/?download=%s", temp) == 1 )
             {
-                response_download(client_sock, file_path);
+                response_download_chunk(client_sock, message);
             }
-            else if( sscanf(file_path, "/?cgi-bin=%s", temp) == 1 )
+            else if( sscanf(message, "/?cgi-bin=%s", temp) == 1 )
             {
-                response_cgi(client_sock, file_path);
+                response_cgi(client_sock, message);
             }
             else
             {
-                response_webpage(client_sock, file_path);
+                response_webpage(client_sock, message);
             }
 
             //测试长链接
@@ -664,7 +651,7 @@ void *do_Method(void *p_client_sock)
             break;
             // POST
         case 'P':
-            upload_file(client_sock, buffer, file_path, headers, begin_pos_of_http_content, size_of_buffer);
+            upload_file(client_sock, buffer, message, headers, begin_pos_of_http_content, size_of_buffer);
             break;
         default:
             printf("暂不支持的方法:%s\n",methods);
