@@ -71,11 +71,10 @@ int main(int argc, char *argv[])
         {
             continue;
         }
-        //对于请求进行处理
-        //do_Method(client_sock,buffer);
+        //创建进程
         pthread_t tid;
         pthread_create(&tid,NULL,do_Method,&client_sock);
-        //pthread_join(tid,NULL);
+        pthread_join(tid,NULL);
 
     }
     close(server_sock);
