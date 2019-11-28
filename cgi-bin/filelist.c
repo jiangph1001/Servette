@@ -73,7 +73,7 @@ void out_put_files_and_dirs(char * file_base_path, char * dir_path)
         printf("<hr/ >\n");
 
         // action这里填入当前显示的目录页面
-        printf("<form method=\"post\" enctype=\"multipart/form-data\">\n");
+        printf("<form action = \"%s\" method=\"post\" enctype=\"multipart/form-data\">\n", file_base_path);
         printf("<label for=\"file\">file name</label>\n");
         printf("<input type=\"file\" name=\"file\" id=\"file\" />\n");
         printf("<br />\n");
@@ -150,7 +150,7 @@ Description:
     第三个参数是程序执行时规定的用户可以读取的根目录file_base_path
 Parameters:
     int argc [IN] popen调用此程序的参数个数
-    char *type [IN] 此程序各个参数字符串的起始位置
+    char *argv [IN] 此程序各个参数字符串的起始位置
 Return:
     返回0
 */
