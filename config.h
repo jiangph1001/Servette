@@ -11,3 +11,4 @@
 #define MAX_THRAD 5
 //#define _DEBUG
 #define FILE_DIR "/file"
+const char *CRLF ="\r\n";
