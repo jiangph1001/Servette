@@ -6,7 +6,6 @@
 
 #include "../config.h"
 
-
 /*
 Description:
     生成错误提示的html代码
@@ -83,6 +82,8 @@ void out_put_files_and_dirs(char * file_base_path, char * dir_path)
 
         printf("<pre>\n");
 
+        printf("<table frame=\"void\"  width=\"50%\" style=\"text-align:left\">\n");
+
         // 如果当前要显示的目录dir_path,不是用户可以访问的跟目录file_base_path，那么可以显示上一级目录
         if( strcmp(dir_path, file_base_path) != 0 )
         {
@@ -95,9 +96,10 @@ void out_put_files_and_dirs(char * file_base_path, char * dir_path)
                 *(char_pointer_of_father_path++) = *(char_pointer_of_dir_path++);
             }
             *char_pointer_of_father_path = '\0';
-            printf("<a href=\"/?cgi-bin=%s\">上一级</a>", father_path);
-            printf("                                                  ");
-            printf("目录    -\n");
+            printf("<tr>\n");
+            printf("<th><a href=\"/?cgi-bin=%s\">上一级</a></th>\n", father_path);
+            printf("<th>目录</th>\n");
+            printf("</tr>\n");
         }
         
 
@@ -118,19 +120,23 @@ void out_put_files_and_dirs(char * file_base_path, char * dir_path)
             if(S_ISDIR(file_info.st_mode))
             {
                 // 是目录
-                printf("<a href=\"/?cgi-bin=%s\">%s</a>", file_path, file_in_dir->d_name);
-                printf("                                                  ");
-                printf("目录    -\n");
+                printf("<tr>\n");
+                printf("<th><a href=\"/?cgi-bin=%s\">%s</a></th>", file_path, file_in_dir->d_name);
+                printf("<th>目录</th>\n");
+                printf("</tr>\n");
             }
             else
             {
                 // 是文件
-                printf("<a href=\"/?download=%s\">%s</a>", file_path, file_in_dir->d_name);
-                printf("                                                  ");
-                printf("目录    -\n");
+                printf("<tr>\n");
+                printf("<th><a href=\"/?download=%s\">%s</a></th>", file_path, file_in_dir->d_name);
+                printf("<th>文件</th>\n");
+                printf("</tr>\n");
             }
             
         }
+
+        printf("</table>\n");
         printf("</pre>\n");
         printf("<hr />\n");
         printf("</body>\n");
@@ -144,13 +150,13 @@ void out_put_files_and_dirs(char * file_base_path, char * dir_path)
 Description:
     被popen函数调用
     执行动态生成html代码的功能
+Parameters:
+    int argc [IN] popen调用此程序的参数个数
+    char *argv [IN] 此程序各个参数字符串的起始位置
     必须传入三个参数
     第一个参数是此程序名字filelist
     第二个参数是用户请求的目录dir_path
     第三个参数是程序执行时规定的用户可以读取的根目录file_base_path
-Parameters:
-    int argc [IN] popen调用此程序的参数个数
-    char *argv [IN] 此程序各个参数字符串的起始位置
 Return:
     返回0
 */
