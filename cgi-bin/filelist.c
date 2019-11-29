@@ -16,7 +16,7 @@ Parameters:
 Return:
     NULL
 */
-void out_put_error_html(char * file_base_path, char * dir_path, char * error_code)
+void output_error_html(char * file_base_path, char * dir_path, char * error_code)
 {
     // 输出HTML
     printf("<!DOCTYPE>\n");
@@ -45,13 +45,13 @@ Parameters:
 Return:
     NULL
 */
-void out_put_files_and_dirs(char * file_base_path, char * dir_path)
+void output_files_and_dirs(char * file_base_path, char * dir_path)
 {
     DIR * dir_info = opendir(dir_path);
     if(dir_info == NULL)
     {
         // 打开目录文件失败
-        out_put_error_html(file_base_path, dir_path, "This is a folder. But cannot open this folder");
+        output_error_html(file_base_path, dir_path, "This is a folder. But cannot open this folder");
         return;
     }
     else
@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
     if( char_pointer == NULL || char_pointer != dir_path )
     {
         // 不在
-        out_put_error_html(file_base_path, dir_path, "This folder is not accessible or does not exist");
+        output_error_html(file_base_path, dir_path, "This folder is not accessible or does not exist");
         return 0;
     }
 
@@ -184,7 +184,7 @@ int main(int argc, char* argv[])
     if( access(dir_path, F_OK) != 0 )
     {
         // 不存在
-        out_put_error_html(file_base_path, dir_path, "This folder or file does not exist");
+        output_error_html(file_base_path, dir_path, "This folder or file does not exist");
         return 0;
     }
 
@@ -196,12 +196,12 @@ int main(int argc, char* argv[])
     if( S_ISDIR(file_info.st_mode) )
     {
         // 是目录
-        out_put_files_and_dirs(file_base_path, dir_path);
+        output_files_and_dirs(file_base_path, dir_path);
     }
     else
     {
         // 是文件
-        out_put_error_html(file_base_path, dir_path, "It's not a folder. This is a regular file");
+        output_error_html(file_base_path, dir_path, "It's not a folder. This is a regular file");
     }
     return 0;
 }
