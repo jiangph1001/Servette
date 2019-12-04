@@ -154,7 +154,7 @@ Description:
     首部行content，第三个参数是首部行
     链表，最后是大小限制参数
 Return:
-    返回1表示找到，返回0表示没找到
+    返回0表示找到，返回-1表示没找到
 */
 int get_http_header_content(const char * name, char * content, http_header_chain *headers, int limit)
 {
@@ -166,11 +166,11 @@ int get_http_header_content(const char * name, char * content, http_header_chain
             {
                 strncpy(content, temp_header->content, strlen(temp_header->content));
                 content[strlen(temp_header->content)] = '\0';
-                return 1;
+                return 0;
             }
             temp_header = temp_header -> next;
         }
-        return 0;
+        return -1;
 }
 
 /*
