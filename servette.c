@@ -2,13 +2,12 @@
 //#include <sys/stat.h>
 //#include <sys/socket.h>
 //#include <fcntl.h>
-#include <netinet/in.h>
-#include <stdio.h>
+
+//#include <stdio.h>
 //#include <unistd.h>
 //#include <stdlib.h>   
 //#include <string.h>
 //#include <errno.h>
-#include <pthread.h>
 #include "response.h"
 
 // 上传下载文件夹位置
@@ -32,11 +31,26 @@ int start_server()
         exit(-1);
     }
 
+    //设置接收地址和端口重用
     int opt = 1;
+    //struct timeval timeout = {3,0}; 
     setsockopt(sock_stat,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
+    setsockopt(sock_stat,SOL_SOCKET,SO_REUSEPORT,&opt,sizeof(opt));
+    //setsockopt(sock_stat,SOL_SOCKET,SO_RCVTIMEO，(char *)&timeout,sizeof(struct timeval));
+
+    //  TCP 的 keep-alive
+    int keepalive = 1; // 开启keepalive属性
+    int keepidle = 20; // 如该连接在20秒内没有任何数据往来,则进行探测
+    int keepinterval = 3; // 探测时发包的时间间隔为3秒
+    int keepcount = 3; // 探测尝试的次数。
+    setsockopt(sock_stat, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive , sizeof(keepalive ));
+    setsockopt(sock_stat, SOL_TCP, TCP_KEEPIDLE, (void*)&keepidle , sizeof(keepidle ));
+    setsockopt(sock_stat, SOL_TCP, TCP_KEEPINTVL, (void *)&keepinterval , sizeof(keepinterval ));
+    setsockopt(sock_stat, SOL_TCP, TCP_KEEPCNT, (void *)&keepcount , sizeof(keepcount ));
+
 
     server_addr.sin_family = AF_INET;  //ipv4
-    server_addr.sin_port = htons(PORT); //port:8888
+    server_addr.sin_port = htons(PORT); //port:8080
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY); // 0.0.0.0
     //将socket和socket地址绑定在一起
     ret = bind(sock_stat,(struct sockaddr *)&server_addr,sizeof(server_addr)); 
@@ -62,12 +76,15 @@ int start_server()
 int main(int argc, char *argv[])
 {   
     int server_sock,client_sock;
-    server_sock = start_server();
+    
     file_base_path = "/file";
+    server_sock = start_server();
+
     while(1)
     {
         struct sockaddr_in client_addr;
         socklen_t len = sizeof(client_addr);
+        //client_addr在项目最后进行处理
         client_sock = accept(server_sock, (struct sockaddr *)& client_addr,&len);
         if(client_sock < 0)
         {
@@ -76,8 +93,7 @@ int main(int argc, char *argv[])
         //创建进程
         pthread_t tid;
         pthread_create(&tid,NULL,do_Method,&client_sock);
-        pthread_join(tid,NULL);
-
+        //pthread_join(tid,NULL);
     }
     close(server_sock);
     return 0;
