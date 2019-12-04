@@ -3,15 +3,21 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+//#include <bits/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+
+
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 #include <pthread.h>
 
+#include "config.h"
 #include "http_header_utils.h"
-#include "filemanage.h"
 
 // 上传下载文件夹位置
 extern const char * file_base_path;
@@ -133,18 +139,22 @@ void response_webpage(int client_sock, char *file)
                 write(client_sock,buf,size);
             }
         }
-        char *ls_res = (char *)malloc(MAX_SIZE*sizeof(char));
-        char *phead = "<p  style=\"white-space: pre-line;font-size: larger\">";
-        const char *tail = "</p></html>";
-        /*
-        run_command("ls -l",ls_res);
-        write(client_sock,phead,strlen(phead));
-        write(client_sock,ls_res,strlen(ls_res));
-        write(client_sock,tail,strlen(tail));
-        */
     }
 }
 
+/*
+Description:
+    仅用于测试，echo回声
+Parameters:
+    int client_sock [IN] 客户端的socket
+    char *msg: [IN] 消息内容
+Return:
+    NULL
+*/
+void response_test(int client_sock, char *msg)
+{
+    write(client_sock,msg,strlen(msg)); 
+}
 
 /*
 Description:
@@ -589,77 +599,66 @@ void *do_Method(void *p_client_sock)
     char methods[5]; //GET or POST
     char buffer[MAX_SIZE],message[MIDDLE_SIZE],temp[MIDDLE_SIZE];
     int client_sock = *(int*) p_client_sock;
-    int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
+    
+    int tid = pthread_self();
+    //设置非阻塞
+    int flags;
+    flags = fcntl(client_sock, F_GETFL, 0);
+    flags |= O_NONBLOCK;
+    fcntl(client_sock, F_SETFL, flags);
 
-    // 有时会有空的数据包，原因还不清楚
-    if(size_of_buffer == 0)
+    while(1)
     {
-        printf("空的数据包?\n",methods);
-    }
+        int size_of_buffer = recv(client_sock, buffer, MAX_SIZE,0);  
+        if((size_of_buffer < 0) &&(errno == EAGAIN||errno == EWOULDBLOCK||errno == EINTR))
+        {
+            usleep(5000);
+            continue;
+        }
+        else if(size_of_buffer <= 0)
+        {
+            printf("buffer长度异常");
+            break;
+        }
+        printf("tid:%d size:%d\n",tid,size_of_buffer);
+        //buffer是接收到的请求，需要处理
+        //从buffer中分离出请求的方法和请求的参数
+        sscanf(buffer,"%s %s",methods,message);  
+        
+        //获得所有的首部行组成的链表
+        http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
+        //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
+        int begin_pos_of_http_content = get_http_headers(buffer,&headers);
+        //print_http_headers(&headers);
 
-    //buffer是接收到的请求，需要处理
-    //从buffer中分离出请求的方法和请求的参数
-    sscanf(buffer,"%s %s",methods,message);  
+        switch(methods[0])
+        {
+            // GET
+            case 'G':
+                // 当message字符串开始就出现"/?download="子串时
+                if(kmp(message, "/?download=", strlen(message)) == 0)
 
-    //获得所有的首部行组成的链表
-    http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
-    //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
-    int begin_pos_of_http_content = get_http_headers(buffer,&headers);
-    //print_http_headers(&headers);
-
-    switch(methods[0])
-    {
-        // GET
-        case 'G':
-            // 当message字符串开始就出现"/?download="子串时
-            if( kmp(message, "/?download=", strlen(message)) == 0 )
-            {
-                response_download_chunk(client_sock, message);
-            }
-            // 当message字符串开始就出现"/?cgi-bin="子串时
-            else if( kmp(message, "/?cgi-bin=", strlen(message)) == 0 )
-            {
-                response_cgi(client_sock, message);
-            }
-            else
-            {
-                response_webpage(client_sock, message);
-            }
-
-            //测试长链接
-            #ifdef _DEBUG
-            int cnt = 1;
-            char buf[30];
-            while(1)
-            {
-                sprintf(buf,"%d\n",cnt);
-                if(cnt%2000==0)
                 {
-                    write(client_sock,buf,strlen(buf));
+                    response_download_chunk(client_sock, message);
+                }
+                else if( kmp(message, "/?cgi-bin=", strlen(message)) == 0  )
+                // 当message字符串开始就出现"/?cgi-bin="子串时
+                {
+                    response_cgi(client_sock, message);
                 }
                 else
                 {
-                    int ret = write(client_sock,"",1);
-                    if(ret == -1)
-                    {
-                        printf("write error: %s\n",strerror(errno));
-                    }
+                    response_webpage(client_sock, message);
                 }
-                cnt++;
-                usleep(500);
-            }
-            #endif
-            //测试结束
-
-            break;
-            // POST
-        case 'P':
-            upload_file(client_sock, buffer, message, headers, begin_pos_of_http_content, size_of_buffer);
-            break;
-        default:
-            printf("暂不支持的方法:%s\n",methods);
-    }
-    delete_http_headers(&headers);
+                break;
+                // POST
+            case 'P':
+                upload_file(client_sock, buffer, message, headers, begin_pos_of_http_content, size_of_buffer);
+                break;
+            default:
+                response_test(client_sock,buffer);
+        } 
+    } 
     close(client_sock);
 }
 
