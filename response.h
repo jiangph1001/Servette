@@ -595,6 +595,7 @@ void *do_Method(void *p_client_sock)
 {
     //另当前线程分离
     pthread_detach(pthread_self());
+    int pos_of_substr;
     char methods[5]; //GET or POST
     char buffer[MAX_SIZE],message[MIDDLE_SIZE],temp[MIDDLE_SIZE];
     int client_sock = *(int*) p_client_sock;
@@ -634,11 +635,14 @@ void *do_Method(void *p_client_sock)
         {
             // GET
             case 'G':
-                if( sscanf(message, "/?download=%s", temp) == 1 )
+                // 当message字符串开始就出现"/?download="子串时
+                if(kmp(message, "/?download=", strlen(message)) == 0)
+
                 {
                     response_download_chunk(client_sock, message);
                 }
-                else if( sscanf(message, "/?cgi-bin=%s", temp) == 1 )
+                else if( kmp(message, "/?cgi-bin=", strlen(message)) == 0  )
+                // 当message字符串开始就出现"/?cgi-bin="子串时
                 {
                     response_cgi(client_sock, message);
                 }
