@@ -606,7 +606,6 @@ void *do_Method(void *p_client_sock)
     flags = fcntl(client_sock, F_GETFL, 0);
     flags |= O_NONBLOCK;
     fcntl(client_sock, F_SETFL, flags);
-
     while(1)
     {
         int size_of_buffer = recv(client_sock, buffer, MAX_SIZE,0);  
@@ -617,10 +616,11 @@ void *do_Method(void *p_client_sock)
         }
         else if(size_of_buffer <= 0)
         {
-            printf("buffer长度异常");
-            break;
+            //printf("buffer长度异常\n");
+            continue;
         }
         printf("tid:%d size:%d\n",tid,size_of_buffer);
+        printf("%s\n",buffer);
         //buffer是接收到的请求，需要处理
         //从buffer中分离出请求的方法和请求的参数
         sscanf(buffer,"%s %s",methods,message);  
@@ -630,7 +630,6 @@ void *do_Method(void *p_client_sock)
         //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
         int begin_pos_of_http_content = get_http_headers(buffer,&headers);
         //print_http_headers(&headers);
-
         switch(methods[0])
         {
             // GET
@@ -656,7 +655,20 @@ void *do_Method(void *p_client_sock)
                 break;
             default:
                 response_test(client_sock,buffer);
-        } 
+        }
+        char *Connection[MIN_SIZE];
+        int keep_alive =  get_http_header_content("Connection", Connection, &headers, MAX_SIZE);
+        #ifdef  _DEBUG
+        if(!keep_alive)
+        {
+            printf("testConnection:%s\n",Connection);
+        }
+        #endif
+        //如果接受到close的connection请求，则关闭socket
+        if(!(keep_alive || strcmp(Connection,"close")))
+        {
+            break;
+        }
     } 
     close(client_sock);
 }

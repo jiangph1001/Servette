@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
 {   
     int server_sock,client_sock;
     struct passwd *pwd = getpwuid(getuid());
-    printf("run as %s\n",pwd->pw_name);
     file_base_path = (char *)malloc(NAME_LEN*sizeof(char));
     if(!strcmp(pwd->pw_name,"root"))
     {
@@ -88,7 +87,6 @@ int main(int argc, char *argv[])
     {
         sprintf(file_base_path,"/home/%s",pwd->pw_name);
     }
-    printf("The folder is:%s\n",file_base_path);
     server_sock = start_server();
 
     while(1)
