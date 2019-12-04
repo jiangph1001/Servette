@@ -9,6 +9,7 @@
 //#include <string.h>
 //#include <errno.h>
 #include "response.h"
+#include <pwd.h>
 
 // 上传下载文件夹位置
 const char * file_base_path;
@@ -76,8 +77,18 @@ int start_server()
 int main(int argc, char *argv[])
 {   
     int server_sock,client_sock;
-    
-    file_base_path = "/file";
+    struct passwd *pwd = getpwuid(getuid());
+    printf("run as %s\n",pwd->pw_name);
+    file_base_path = (char *)malloc(NAME_LEN*sizeof(char));
+    if(!strcmp(pwd->pw_name,"root"))
+    {
+        sprintf(file_base_path,"/root");
+    }
+    else
+    {
+        sprintf(file_base_path,"/home/%s",pwd->pw_name);
+    }
+    printf("The folder is:%s\n",file_base_path);
     server_sock = start_server();
 
     while(1)

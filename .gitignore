@@ -1,5 +1,7 @@
 servette
 *.o
 *.txt
+test
+event
 .vscode
 response
