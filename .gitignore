@@ -1,6 +1,5 @@
 servette
 *.o
 *.txt
-*test*
 .vscode
 response

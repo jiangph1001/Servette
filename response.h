@@ -637,7 +637,6 @@ void *do_Method(void *p_client_sock)
             case 'G':
                 // 当message字符串开始就出现"/?download="子串时
                 if(kmp(message, "/?download=", strlen(message)) == 0)
-
                 {
                     response_download_chunk(client_sock, message);
                 }
