@@ -62,7 +62,7 @@ void construct_header(char *header,int status,const char *type)
 }
 /*
 Description:
-    生成响应头for Download
+    生成响应头for Download，chunk
 Parameters:
     char *header [OUT] 输出的响应头
     int status [IN] 状态码
@@ -144,14 +144,14 @@ void response_webpage(int client_sock, char *file)
 
 /*
 Description:
-    仅用于测试，echo回声
+    对于无法解析的请求，暂用作回声服务器
 Parameters:
     int client_sock [IN] 客户端的socket
     char *msg: [IN] 消息内容
 Return:
     NULL
 */
-void response_test(int client_sock, char *msg)
+void response_echo(int client_sock, char *msg)
 {
     write(client_sock,msg,strlen(msg)); 
 }
@@ -593,13 +593,9 @@ Return:
 */
 void *do_Method(void *p_client_sock)
 {
-    //另当前线程分离
+    //令当前线程分离
     pthread_detach(pthread_self());
-    int pos_of_substr;
-    char methods[5]; //GET or POST
-    char buffer[MAX_SIZE],message[MIDDLE_SIZE],temp[MIDDLE_SIZE];
     int client_sock = *(int*) p_client_sock;
-    
     int tid = pthread_self();
     //设置非阻塞
     int flags;
@@ -608,23 +604,33 @@ void *do_Method(void *p_client_sock)
     fcntl(client_sock, F_SETFL, flags);
     while(1)
     {
+        char methods[5],message[MIDDLE_SIZE];; //GET or POST
+        char *buffer;
+        buffer = (char *)malloc(MAX_SIZE*sizeof(char));
         int size_of_buffer = recv(client_sock, buffer, MAX_SIZE,0);  
+        //因为设置了非阻塞，所以需要轮询
         if((size_of_buffer < 0) &&(errno == EAGAIN||errno == EWOULDBLOCK||errno == EINTR))
         {
-            usleep(5000);
+            usleep(300000);
             continue;
         }
         else if(size_of_buffer <= 0)
         {
-            //printf("buffer长度异常\n");
+            printf("buffer长度异常,长度为%d\n",size_of_buffer);
             continue;
         }
+        #ifdef _DEBUG
         printf("tid:%d size:%d\n",tid,size_of_buffer);
-        printf("%s\n",buffer);
+        printf("BUFFER:%s\n",buffer);
+        #endif
         //buffer是接收到的请求，需要处理
         //从buffer中分离出请求的方法和请求的参数
-        sscanf(buffer,"%s %s",methods,message);  
-        
+        int s_ret = sscanf(buffer,"%s %s",methods,message);
+        if(s_ret!=2)
+        {
+            response_echo(client_sock,buffer);
+            continue;
+        }
         //获得所有的首部行组成的链表
         http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
         //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
@@ -654,7 +660,8 @@ void *do_Method(void *p_client_sock)
                 upload_file(client_sock, buffer, message, headers, begin_pos_of_http_content, size_of_buffer);
                 break;
             default:
-                response_test(client_sock,buffer);
+                printf("不支持的协议\n");
+                response_echo(client_sock,buffer);
         }
         char *Connection[MIN_SIZE];
         int keep_alive =  get_http_header_content("Connection", Connection, &headers, MAX_SIZE);

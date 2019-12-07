@@ -51,12 +51,13 @@ int main(int argc, char const *argv[])
         printf("connect!\n");
     }
     char buffer[256];
-    char msg[256];
-    while(~scanf("%s",msg))
+    char msg[256] = "GET / HTTP/1.1\r\nConnection: close\r\n\n";
+    while(1)
     {
         send(client_sock,msg,strlen(msg),0);
-        read(client_sock,buffer,4096);
+        read(client_sock,buffer,24096);
         printf(">>>>%s<<<<\n",buffer);
+        scanf("%s",msg);
     }
     return 0;
 }
