@@ -12,7 +12,7 @@
 #include <pwd.h>
 
 // 上传下载文件夹位置
-const char * file_base_path;
+char * file_base_path;
 
 /*
 Description:

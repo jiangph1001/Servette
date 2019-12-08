@@ -10,7 +10,6 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
@@ -20,7 +19,7 @@
 #include "http_header_utils.h"
 
 // 上传下载文件夹位置
-extern const char * file_base_path;
+extern char * file_base_path;
 
 /*
 Description:
@@ -60,6 +59,8 @@ void construct_header(char *header,int status,const char *type)
     printf("%s\n",header);
 
 }
+
+
 /*
 Description:
     生成响应头for Download，chunk
@@ -458,13 +459,11 @@ int upload_file(int client_sock, char * buffer, char * arg, http_header_chain he
     boundary[strlen(temp)] = '\0';
     printf("boundary: %s \n", boundary);
 
-
     //begin_pos_of_http_content很重要, HTTP数据包在这一点之后就是http数据包的实体部分
     //使用pos_of_buffer来显示现在读取的buffer的位置
     int pos_of_buffer = begin_pos_of_http_content;
     // 一次写入文件的量
     int written_size = 0;
-
 
     //首先读取第一行，这里第一行是boundary
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
@@ -519,7 +518,6 @@ int upload_file(int client_sock, char * buffer, char * arg, http_header_chain he
     //根据文件名，创建文件
     int fd = open(filename, O_CREAT | O_WRONLY);
     
-
     //第三行是文件类型信息
     pos_of_buffer = get_next_line(temp, buffer, pos_of_buffer, MAX_SIZE - 1);
 
@@ -597,6 +595,8 @@ void *do_Method(void *p_client_sock)
     pthread_detach(pthread_self());
     int client_sock = *(int*) p_client_sock;
     int tid = pthread_self();
+    int break_cnt = 0;//用于指定tcp连接断开,一定次数的无连接即断开tcp
+    char *Connection //记录Connection的连接信息
     //设置非阻塞
     int flags;
     flags = fcntl(client_sock, F_GETFL, 0);
@@ -608,6 +608,13 @@ void *do_Method(void *p_client_sock)
         char *buffer;
         buffer = (char *)malloc(MAX_SIZE*sizeof(char));
         int size_of_buffer = recv(client_sock, buffer, MAX_SIZE,0);  
+        
+        break_cnt++;
+        if(break_cnt>BREAK_CNT)
+        {
+            break;
+        }
+
         //因为设置了非阻塞，所以需要轮询
         if((size_of_buffer < 0) &&(errno == EAGAIN||errno == EWOULDBLOCK||errno == EINTR))
         {
@@ -616,6 +623,7 @@ void *do_Method(void *p_client_sock)
         }
         else if(size_of_buffer <= 0)
         {
+            //此处大部分情况为出现空的包，以后考虑如何处理
             printf("buffer长度异常,长度为%d\n",size_of_buffer);
             continue;
         }
@@ -623,11 +631,13 @@ void *do_Method(void *p_client_sock)
         printf("tid:%d size:%d\n",tid,size_of_buffer);
         printf("BUFFER:%s\n",buffer);
         #endif
+        break_cnt = 0;
         //buffer是接收到的请求，需要处理
         //从buffer中分离出请求的方法和请求的参数
         int s_ret = sscanf(buffer,"%s %s",methods,message);
         if(s_ret!=2)
         {
+            //如果buffer中的数据无法被分割为两个字符串，则默认echo
             response_echo(client_sock,buffer);
             continue;
         }
@@ -636,6 +646,8 @@ void *do_Method(void *p_client_sock)
         //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
         int begin_pos_of_http_content = get_http_headers(buffer,&headers);
         //print_http_headers(&headers);
+        Connection = (char *)malloc(MIN_SIZE * sizeof(char));
+        int keep_alive =  get_http_header_content("Connection", Connection, &headers, MAX_SIZE);
         switch(methods[0])
         {
             // GET
@@ -660,11 +672,10 @@ void *do_Method(void *p_client_sock)
                 upload_file(client_sock, buffer, message, headers, begin_pos_of_http_content, size_of_buffer);
                 break;
             default:
-                printf("不支持的协议\n");
+                printf("不支持的请求:\n");
                 response_echo(client_sock,buffer);
         }
-        char *Connection[MIN_SIZE];
-        int keep_alive =  get_http_header_content("Connection", Connection, &headers, MAX_SIZE);
+        
         #ifdef  _DEBUG
         if(!keep_alive)
         {
@@ -676,6 +687,7 @@ void *do_Method(void *p_client_sock)
         {
             break;
         }
+        free(Connection);
     } 
     close(client_sock);
 }
