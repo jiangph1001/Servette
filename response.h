@@ -596,7 +596,7 @@ void *do_Method(void *p_client_sock)
     int client_sock = *(int*) p_client_sock;
     int tid = pthread_self();
     int break_cnt = 0;//用于指定tcp连接断开,一定次数的无连接即断开tcp
-    char *Connection //记录Connection的连接信息
+    char *Connection; //记录Connection的连接信息
     //设置非阻塞
     int flags;
     flags = fcntl(client_sock, F_GETFL, 0);
