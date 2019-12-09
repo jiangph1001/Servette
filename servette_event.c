@@ -1,6 +1,5 @@
 
 #include <stdio.h>
-
 #include <event2/event.h>
 
 #include <event.h>
@@ -59,7 +58,7 @@ void destroy_sock_ev(struct sock_ev* sock_ev_struct){
 
 void on_write(int client_sock, short event, void *arg)
 {
-    printf("on write");
+    printf("on write\n");
     char methods[5],message[MIDDLE_SIZE];; //GET or POST
     if (arg == NULL)
     {
@@ -67,7 +66,8 @@ void on_write(int client_sock, short event, void *arg)
     }
     struct sock_ev_write *sock_ev_write_struct = (struct sock_ev_write *)arg;
 
-    char buffer[MAX_SIZE];
+    char *buffer;
+    buffer = (char *)malloc(MAX_SIZE*sizeof(char));
     sprintf(buffer, "%s",sock_ev_write_struct->buffer);
 
     //destroy_sock_ev_write(sock_ev_write_struct);
@@ -119,10 +119,12 @@ void on_read(int client_sock, short event, void *arg)
     struct sock_ev *event_struct = (struct sock_ev *)arg; //获取传进来的参数
     char *buffer;
     buffer = (char *)malloc(MAX_SIZE * sizeof(char));
+    /*
     int flags;
     flags = fcntl(client_sock, F_GETFL, 0);
     flags |= O_NONBLOCK;
     fcntl(client_sock, F_SETFL, flags);
+    */
     //本来应该用while一直循环，但由于用了libevent，只在可以读的时候才触发on_read()
     int size_of_buffer = recv(client_sock, buffer, MAX_SIZE, 0); 
     if (size_of_buffer == 0)
@@ -148,7 +150,6 @@ void *new_process(void *p_client_sock)
 {
     //线程分离
     pthread_detach(pthread_self());
-
     int client_sock = *(int *)p_client_sock;
     //初始化base,写事件和读事件
     struct event_base *base = event_base_new();
@@ -172,6 +173,8 @@ Description:
  */
 void on_accept(int sock, short event, void *arg)
 {
+    while(1)
+    {
         struct sockaddr_in client_addr;
         socklen_t len = sizeof(client_addr);
         
@@ -185,7 +188,8 @@ void on_accept(int sock, short event, void *arg)
         //accept_new_thread(new_fd);
         pthread_t tid;
         pthread_create(&tid, NULL, new_process, &client_sock);
-        pthread_join(tid, NULL); // // // //
+        //pthread_join(tid, NULL); // // // //
+    }
 }
 
 /*
@@ -212,7 +216,7 @@ int start_server()
     int opt = 1;
     setsockopt(sock_stat,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
     setsockopt(sock_stat,SOL_SOCKET,SO_REUSEPORT,&opt,sizeof(opt));
-    memset(&server_addr, 0, sizeof(server_addr))
+    memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;                //ipv4
     server_addr.sin_port = htons(PORT);              //port:8080
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY); // 0.0.0.0

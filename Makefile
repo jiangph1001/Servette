@@ -10,7 +10,7 @@ servette.o:$(headerfile)
 .PHONY:clean
 clean:
 	rm -fv $(objects)
-event: servette_event.c
-	gcc -o $@ $^ $(EVENT) $(LIBS)
+event:servette_event.c
+	gcc -o $@ $^ $(EVENT) $(LIBS) -g
 test: tester.c
 	gcc -o $@ $^ 
