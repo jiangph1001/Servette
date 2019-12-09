@@ -4,6 +4,9 @@
 
 # 关于最新的更新
 
+ `servette_event.c`已经可以正常编译并启动，但留有bug
+
+
 `tester.c `为用于测试长链接的客户端代码，后期不一定维护，编译命令 `make test`  
 `servette_event.c` 为使用libevent启动服务器的代码，还未完善，编译命令 `make event`  
 cgi脚本暂不添加到Makefile中,等测试完成后添加  
