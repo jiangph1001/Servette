@@ -34,7 +34,6 @@ int start_server()
 
     //设置接收地址和端口重用
     int opt = 1;
-    //struct timeval timeout = {3,0}; 
     setsockopt(sock_stat,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
     setsockopt(sock_stat,SOL_SOCKET,SO_REUSEPORT,&opt,sizeof(opt));
     //setsockopt(sock_stat,SOL_SOCKET,SO_RCVTIMEO，(char *)&timeout,sizeof(struct timeval));
@@ -77,6 +76,7 @@ int start_server()
 int main(int argc, char *argv[])
 {   
     int server_sock,client_sock;
+    //获取当前的用户信息(root或普通用户)
     struct passwd *pwd = getpwuid(getuid());
     file_base_path = (char *)malloc(NAME_LEN*sizeof(char));
     if(!strcmp(pwd->pw_name,"root"))

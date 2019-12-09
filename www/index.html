@@ -1,28 +1,42 @@
 <!DOCTYPE>
 <html>
-<head> <meta charset="UTF-8"> </head>
+<meta charset="UTF-8">
+
+
+<head>
+    <h1> Naive File Server </h1>
+    <h2>Servette文件服务器</h2>
+</head>
+
 <body>
-<h1> Naive File Server </h1>
-<h2>Servette文件服务器</h2>
-<hr/ >        
-<p>
-文件下载API：/?download=[文件名] <br>
-CGI功能入口：/?cgi-bin=[文件目录] <br>
-默认为读取用户目录（即root用户读取/root， 普通用户读取/home/[用户名]）<br>
-如果你是root用户，<a href = "/?cgi-bin=/root">点此</a>
-</p>
 
-<!--
-        <form action="index.html" method="post" enctype="multipart/form-data">
-            <label for="file">文件名</label>
-            <input type="file" name="file" id="file" /> 
-            <br />
-            <p><input type="submit" value="上传" /></p>
-        </form>
--->
-        
-<hr />
+    <hr>
+    <p>
+        <font size=5>
+            文件下载API：/?download=[文件名] <br>
+            CGI功能入口：/?cgi-bin=[文件目录] <br>
+            <hr>
+            默认为读取用户目录<br>（即root用户读取/root， 普通用户读取/home/[用户名]）<br>
+            如果你是root用户，<a href="/?cgi-bin=/root">点此</a>
+
+
+            <hr />
+            功能：
+            <ul>
+                <li>显示网页</li>
+                <li>上传文件</li>
+                <li>下载文件</li>
+                <li>支持keep-alive</li>
+                <li>支持chunk</li>
+                <li>支持多路并发</li>
+            </ul>
+        </font>
+    </p>
+    <hr>
+    <footer style="clear:both;text-align:center;">
+        <img src="./github.jpg" width="42" height="42"><br>
+        <a href="https://github.com/jiangph1001/Servette">https://github.com/jiangph1001/Servette</a>
+    </footer>
 </body>
+
 </html>
-
-

@@ -11,6 +11,6 @@ servette.o:$(headerfile)
 clean:
 	rm -fv $(objects)
 event: servette_event.c
-	gcc -o $@ $^ $(EVENT) $(LIBS) -I/usr/local/include -L/usr/local/lib -Wl,-rpath=/usr/local/lib
+	gcc -o $@ $^ $(EVENT) $(LIBS)
 test: tester.c
 	gcc -o $@ $^ 
