@@ -129,7 +129,8 @@ void on_read(int client_sock, short event, void *arg)
     { //说明socket关闭
         //destroy_sock_ev(event_struct);
         //close(client_sock);
-        //return;
+        return;
+
     }
     printf("%s\n", buffer);
     struct sock_ev_write *sock_ev_write_struct = (struct sock_ev_write *)malloc(sizeof(struct sock_ev_write));
@@ -171,7 +172,6 @@ Description:
  */
 void on_accept(int sock, short event, void *arg)
 {
-
         struct sockaddr_in client_addr;
         socklen_t len = sizeof(client_addr);
         
