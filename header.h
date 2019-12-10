@@ -12,7 +12,6 @@ Return:
 const char *get_type_by_name(char *file)
 {
     int len = strlen(file);
-    printf("file: %s\n",file);
     if (kmp(file, ".htm", len) != -1)
     {
         return "text/html";
@@ -207,9 +206,11 @@ void construct_header(char *header, int status, const char *type)
     sprintf(header, "%sContent-Type:%s\r\n", header, type);
     sprintf(header, "%sServer:servette-UCAS\r\n", header);
     sprintf(header, "%sConnection: keep-alive\r\n", header);
+    #ifdef _DEBUG
+    printf("Response:\n--------\n%s\n----------\n", header);
+    #endif
     sprintf(header, "%s\r\n", header);
 
-    printf("%s\n", header);
 }
 
 /*
@@ -230,7 +231,10 @@ void construct_download_header(char *header, int status, const char *file_name)
     sprintf(header, "%sContent-Type:application/octet-stream\r\n", header);
     sprintf(header, "%sContent-Disposition: attachment;filename=%s\r\n", header, file_name);
     sprintf(header, "%sTransfer-Encoding:chunked\r\n", header); //下载文件通过chunk传输
+
+    #ifdef _DEBUG
+    printf("Response:\n--------\n%s\n----------\n", header);
+    #endif
     sprintf(header, "%s\r\n", header);
 
-    printf("%s\n", header);
 }

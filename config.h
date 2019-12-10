@@ -12,6 +12,7 @@
 #define MAX_THRAD 5
 #define KEEPALIVE_TIMEOUT 3
 //#define _DEBUG
+//#define _DEBUG2
 #define FILE_DIR "/file"
 #define SELECT_SOCKET 0
 #define SELECT_LIBEVENT 1

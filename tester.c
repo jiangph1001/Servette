@@ -63,7 +63,8 @@ int main(int argc, char const *argv[])
     }
     */
     char ch[] = "/root/%E4%B8%AD%E6%96%87%E6%B5%8B%E8%AF%95abc%1";
+    printf("%d\n",strlen(ch));
     char *de_ch = urldecode(ch);
-    printf("%s\n",de_ch);
+    printf("%d:%s\n",strlen(de_ch),de_ch);
     return 0;
 }

@@ -36,7 +36,7 @@ Return
 char *urldecode(char *src)
 {
     int len = strlen(src);
-    int count = len / 3;
+    int count = len;
     char *dst = (char *)malloc(sizeof(char) * (count+1));
     if (! dst ) // 分配空间失败
         return NULL;
@@ -79,5 +79,5 @@ void decode_message(char *message)
 {
     char *decode_msg = urldecode(message);
     sprintf(message,"%s",decode_msg);
-    //free(decode_msg);
+    free(decode_msg);
 }

@@ -465,19 +465,16 @@ void *do_Method(void *p_client_sock)
     fcntl(client_sock, F_SETFL, flags);
     while (1)
     {
-        char methods[5];
-        ; //GET or POST
+        char methods[5]; //GET or POST
         char *buffer,*message;
         buffer = (char *)malloc(MAX_SIZE * sizeof(char));
         message = (char *)malloc(MIDDLE_SIZE * sizeof(char));
         int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
-        printf("%s\n", buffer);
         break_cnt++;
         if (break_cnt > BREAK_CNT)
         {
             break;
         }
-
         //因为设置了非阻塞，所以需要轮询
         if ((size_of_buffer < 0) && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
         {
@@ -492,7 +489,7 @@ void *do_Method(void *p_client_sock)
         }
 #ifdef _DEBUG
         printf("tid:%d size:%d\n", tid, size_of_buffer);
-        printf("BUFFER:%s\n", buffer);
+        printf("Ruquest:\n--------\n%s\n--------\n", buffer);
 #endif
         break_cnt = 0;
         //buffer是接收到的请求，需要处理
@@ -511,8 +508,9 @@ void *do_Method(void *p_client_sock)
         //print_http_headers(&headers);
         Connection = (char *)malloc(MIN_SIZE * sizeof(char));
         int keep_alive = get_http_header_content("Connection", Connection, &headers, MAX_SIZE);
-        char *decode_msg = urldecode(message);
-        message = decode_msg;
+
+        decode_message(message);
+
         switch (methods[0])
         {
         // GET
@@ -541,7 +539,7 @@ void *do_Method(void *p_client_sock)
             response_echo(client_sock, buffer);
         }
 
-#ifdef _DEBUG
+#ifdef _DEBUG2
         if (!keep_alive)
         {
             printf("testConnection:%s\n", Connection);
