@@ -23,6 +23,29 @@
 // 上传下载文件夹位置
 extern char *file_base_path;
 
+
+/*
+Description:
+    判断socket是否关闭
+Return:
+    0：开启
+    1：关闭
+*/
+int judge_socket_closed(int client_socket)
+{
+    char buff[32];
+    int recvBytes = recv(client_socket, buff, sizeof(buff), MSG_PEEK);
+    int sockErr = errno;
+
+    if (recvBytes > 0) //Get data
+        return 0;
+
+    if ((recvBytes == -1) && (sockErr == EWOULDBLOCK)) //No receive data
+        return 0;
+
+    return 1;
+}
+
 /*
 Description:
     读取html文件，并显示在网页上
@@ -69,6 +92,11 @@ void response_webpage(int client_sock, char *file)
             size = read(fd, buf, MAX_SIZE);
             if (size > 0)
             {
+                if(judge_socket_closed(client_sock))
+                {   
+                    printf("传输中断\n");
+                    return;
+                }
                 write(client_sock, buf, size);
             }
         }
@@ -136,14 +164,16 @@ void response_cgi(int client_sock, char *arg)
         {
             // 这里可能还有错误，写的时候对端的TCP连接已经关闭了
             // 会引起servette的异常退出
-
+            if(judge_socket_closed(client_sock))
+            {
+                printf("传输中断\n");
+                return;
+            }
             int i = write(client_sock, html, strlen(html) - 1);
             //注意sizeof("\r\n") == 3，算上了结尾的'\0'
             i = write(client_sock, "\r\n", sizeof("\r\n") - 1);
         }
         pclose(fp);
-        
-
     }
 }
 
@@ -188,6 +218,11 @@ void response_download(int client_sock, char *arg)
         size = read(fd, buf, MAX_SIZE);
         if (size > 0)
         {
+            if(judge_socket_closed(client_sock))
+            {
+                printf("传输中断\n");
+                return;
+            }
             send(client_sock, buf, size, 0);
         }
     }
@@ -229,14 +264,14 @@ void response_download_chunk(int client_sock, char *arg)
     {
         construct_header(header, 404, "text/html");
         write(client_sock, header, strlen(header));
-        
+
         return;
     }
     //构建下载的相应头部
     printf("\tdownloading %s\n", file_name);
     construct_download_header(header, 200, file_name);
     write(client_sock, header, strlen(header));
-    
+
     // while(fgets(buf,MAX_SIZE,fp) != NULL)
     // {
     //     size = read(fd, buf, MAX_SIZE);
@@ -254,7 +289,7 @@ void response_download_chunk(int client_sock, char *arg)
     while (size)
     {
         //size代表读取的字节数
-        if(flag<20)
+        if (flag < 20)
         {
             usleep(350000);
             flag++;
@@ -262,19 +297,23 @@ void response_download_chunk(int client_sock, char *arg)
         else
             usleep(50000);
         size = read(fd, buf, MAX_SIZE);
-        #ifdef _DEBUG
-            printf("读取了%dBytes\n",size);
-        #endif
+#ifdef _DEBUG
+        printf("读取了%dBytes\n", size);
+#endif
         chunk_head = (char *)malloc(MIN_SIZE * sizeof(char));
         sprintf(chunk_head, "%x\r\n", size); //需要转换为16进制
         write(client_sock, chunk_head, strlen(chunk_head));
         if (size > 0)
         {
+            if(judge_socket_closed(client_sock))
+            {
+                printf("传输中断\n");
+                return;
+            }    
             write(client_sock, buf, size);
         }
         write(client_sock, CRLF, strlen(CRLF));
         free(chunk_head);
-        
     }
     printf("下载完成\n");
     write(client_sock, CRLF, strlen(CRLF));
@@ -307,8 +346,6 @@ int get_next_line(char *temp, const char *buffer, int pos_of_buffer, int limit)
     return (pos_of_buffer + 2);
 }
 
-
-
 /*
 Description:
     从输入的buffer字符数组中的下标pos开始，到下一个"\r\n"。
@@ -319,7 +356,7 @@ Parameters:
 Return:
     成功返回0，失败返回1
 */
-int upload_file(int client_sock, char *buffer , char *arg, http_header_chain headers, int begin_pos_of_http_content, int size_of_buffer)
+int upload_file(int client_sock, char *buffer, char *arg, http_header_chain headers, int begin_pos_of_http_content, int size_of_buffer)
 {
     int content_length = 0;
     int temp_pos = 0;
@@ -446,6 +483,11 @@ int upload_file(int client_sock, char *buffer , char *arg, http_header_chain hea
             else
             {
                 //读socket中的数据
+                if(judge_socket_closed(client_sock))
+                {
+                    printf("传输中断\n");
+                    return;
+                }
                 size_of_buffer = read(client_sock, buffer, MAX_SIZE);
                 printf("从socket中读出的量：%d\n", size_of_buffer);
                 pos_of_buffer = 0;
@@ -469,7 +511,7 @@ int upload_file(int client_sock, char *buffer , char *arg, http_header_chain hea
                 break;
             }
         }
-        if(size_of_buffer <= 0)
+        if (size_of_buffer <= 0)
             break;
     }
 
@@ -504,8 +546,13 @@ void *do_Method(void *p_client_sock)
     fcntl(client_sock, F_SETFL, flags);
     while (1)
     {
+        if(judge_socket_closed(client_sock))
+        {
+            printf("客户端断开连接\n");
+            return;
+        }
         char methods[5]; //GET or POST
-        char *buffer,*message;
+        char *buffer, *message;
         buffer = (char *)malloc(MAX_SIZE * sizeof(char));
         message = (char *)malloc(MIDDLE_SIZE * sizeof(char));
         int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
