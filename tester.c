@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdlib.h>
 //#include <bits/socket.h>
+#include "urldecode.h"
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/types.h>
@@ -35,6 +36,7 @@ int start_client()
 }
 int main(int argc, char const *argv[])
 {
+    /*
     int client_sock,server_sock;
     client_sock = start_client();
     struct sockaddr_in server_addr;
@@ -59,5 +61,9 @@ int main(int argc, char const *argv[])
         printf(">>>>%s<<<<\n",buffer);
         scanf("%s",msg);
     }
+    */
+    char ch[] = "/root/%E4%B8%AD%E6%96%87%E6%B5%8B%E8%AF%95abc%1";
+    char *de_ch = urldecode(ch);
+    printf("%s\n",de_ch);
     return 0;
 }

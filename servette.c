@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
         //创建进程
         pthread_t tid;
         pthread_create(&tid,NULL,do_Method,&client_sock);
-        //pthread_join(tid,NULL);
+        pthread_join(tid,NULL);
     }
     close(server_sock);
     return 0;
