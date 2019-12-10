@@ -14,3 +14,5 @@ event:servette_event.c
 	gcc -o $@ $^ $(EVENT) $(LIBS) -g
 test: tester.c
 	gcc -o $@ $^ 
+install: cgi-bin/filelist.c
+	gcc -o cgi-bin/filelist $^
