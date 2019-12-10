@@ -62,7 +62,7 @@ int main(int argc, char const *argv[])
         scanf("%s",msg);
     }
     */
-    char ch[] = "/root/%E4%B8%AD%E6%96%87%E6%B5%8B%E8%AF%95abc%1";
+    char ch[] = "2019%20IEEE%20Symsium%20on%20Security%20and%20Privac论文粗读";
     printf("%d\n",strlen(ch));
     char *de_ch = urldecode(ch);
     printf("%d:%s\n",strlen(de_ch),de_ch);

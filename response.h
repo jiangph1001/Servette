@@ -37,19 +37,19 @@ void response_webpage(int client_sock, char *file)
     int fd;
     char buf[MAX_SIZE], header[MAX_SIZE];
     int size = -1;
+    char *file_name;
+    file_name = (char *)malloc(MIDDLE_SIZE * sizeof(char));
     if (strcmp(file, "/") == 0)
     {
         //如果没有指定文件，则默认打开index.html
-        sprintf(file, "%s%s", HTML_DIR, DEFAULT_FILE);
+        sprintf(file_name, "%s%s", HTML_DIR, DEFAULT_FILE);
     }
     else
     {
-        char new_file[NAME_LEN];
-        sprintf(new_file, "%s%s", HTML_DIR, file);
-        file = new_file;
+        sprintf(file_name, "%s%s", HTML_DIR, file);
     }
     //读取文件
-    fd = open(file, O_RDONLY);
+    fd = open(file_name, O_RDONLY);
     if (fd == -1)
     {
         //打开文件失败时构造404的相应
@@ -59,7 +59,7 @@ void response_webpage(int client_sock, char *file)
     }
     else
     {
-        const char *type = get_type_by_name(file);
+        const char *type = get_type_by_name(file_name);
         construct_header(header, 200, type);
         write(client_sock, header, strlen(header));
         //write(client_sock,echo_str,strlen(echo_str));
@@ -129,6 +129,7 @@ void response_cgi(int client_sock, char *arg)
             write(client_sock, header, strlen(header));
             return;
         }
+        //response_webpage(client_sock,"/");
         construct_header(header, 200, "text/html");
         write(client_sock, header, strlen(header));
         while (fgets(html, sizeof(html), fp) != NULL)
@@ -141,6 +142,8 @@ void response_cgi(int client_sock, char *arg)
             i = write(client_sock, "\r\n", sizeof("\r\n") - 1);
         }
         pclose(fp);
+        
+
     }
 }
 
@@ -216,31 +219,65 @@ void response_download_chunk(int client_sock, char *arg)
         return;
     }
     fd = open(file_name, O_RDONLY);
+    // FILE *fp = fopen(file_name,"rb");
+    // if(fp == NULL)
+    // {
+    //     construct_header(header, 404, "text/html");
+    //      write(client_sock, header, strlen(header));
+    // }
     if (fd == -1)
     {
         construct_header(header, 404, "text/html");
         write(client_sock, header, strlen(header));
+        
         return;
     }
     //构建下载的相应头部
     printf("\tdownloading %s\n", file_name);
     construct_download_header(header, 200, file_name);
     write(client_sock, header, strlen(header));
+    
+    // while(fgets(buf,MAX_SIZE,fp) != NULL)
+    // {
+    //     size = read(fd, buf, MAX_SIZE);
+    //     chunk_head = (char *)malloc(MIN_SIZE * sizeof(char));
+    //     sprintf(chunk_head, "%x\r\n", size); //需要转换为16进制
+    //     send(client_sock, chunk_head, strlen(chunk_head), 0);
+    //     if (size > 0)
+    //     {
+    //         send(client_sock, buf, size, 0);
+    //     }
+    //     send(client_sock, CRLF, strlen(CRLF), 0);
+    //     free(chunk_head);
+    // }
+    int flag = 1;
     while (size)
     {
         //size代表读取的字节数
+        if(flag<20)
+        {
+            usleep(350000);
+            flag++;
+        }
+        else
+            usleep(50000);
         size = read(fd, buf, MAX_SIZE);
+        #ifdef _DEBUG
+            printf("读取了%dBytes\n",size);
+        #endif
         chunk_head = (char *)malloc(MIN_SIZE * sizeof(char));
         sprintf(chunk_head, "%x\r\n", size); //需要转换为16进制
-        send(client_sock, chunk_head, strlen(chunk_head), 0);
+        write(client_sock, chunk_head, strlen(chunk_head));
         if (size > 0)
         {
-            send(client_sock, buf, size, 0);
+            write(client_sock, buf, size);
         }
-        send(client_sock, CRLF, strlen(CRLF), 0);
+        write(client_sock, CRLF, strlen(CRLF));
         free(chunk_head);
+        
     }
-    send(client_sock, CRLF, strlen(CRLF), 0);
+    printf("下载完成\n");
+    write(client_sock, CRLF, strlen(CRLF));
     printf("\n");
 }
 
@@ -393,7 +430,7 @@ int upload_file(int client_sock, char *buffer , char *arg, http_header_chain hea
         // boundary，存在证明file结尾在此buffer中，不存在
         // 证明还需要再读socket中的数据
         int pos_of_boundary_after_pos_of_buffer = kmp(buffer + pos_of_buffer, boundary, size_of_buffer - pos_of_buffer);
-
+        int size_of_buffer;
         // file的结尾不存在于此buffer中
         if (pos_of_boundary_after_pos_of_buffer == -1)
         {
@@ -409,7 +446,7 @@ int upload_file(int client_sock, char *buffer , char *arg, http_header_chain hea
             else
             {
                 //读socket中的数据
-                int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
+                size_of_buffer = read(client_sock, buffer, MAX_SIZE);
                 printf("从socket中读出的量：%d\n", size_of_buffer);
                 pos_of_buffer = 0;
             }
@@ -432,6 +469,8 @@ int upload_file(int client_sock, char *buffer , char *arg, http_header_chain hea
                 break;
             }
         }
+        if(size_of_buffer <= 0)
+            break;
     }
 
     //重新显示这个页面

@@ -73,10 +73,10 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
 
         // action这里填入当前显示的目录页面
         printf("<form action = \"%s\" method=\"post\" enctype=\"multipart/form-data\">\n", file_base_path);
-        printf("<label for=\"file\">file name</label>\n");
+        printf("<label for=\"file\">文件名：</label>\n");
         printf("<input type=\"file\" name=\"file\" id=\"file\" />\n");
         printf("<br />\n");
-        printf("<p><input type=\"submit\" value=\"upload\" /></p>\n");
+        printf("<p><input type=\"submit\" value=\"上传\" /></p>\n");
         printf("</form>\n");
         printf("<hr />\n");
 
@@ -129,7 +129,7 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
             {
                 // 是文件
                 printf("<tr>\n");
-                printf("<th><a href=\"/?download=%s\">%s</a></th>", file_path, file_in_dir->d_name);
+                printf("<th><a href=\"/?download=%s\" target=\"_blank\">%s</a></th>", file_path, file_in_dir->d_name);
                 printf("<th>文件</th>\n");
                 printf("</tr>\n");
             }

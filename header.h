@@ -205,7 +205,8 @@ void construct_header(char *header, int status, const char *type)
     sprintf(header, "HTTP/1.1 %d %s\r\n", status, msg);
     sprintf(header, "%sContent-Type:%s\r\n", header, type);
     sprintf(header, "%sServer:servette-UCAS\r\n", header);
-    sprintf(header, "%sConnection: keep-alive\r\n", header);
+    if(status < 400)
+        sprintf(header, "%sConnection: keep-alive\r\n", header);
     #ifdef _DEBUG
     printf("Response:\n--------\n%s\n----------\n", header);
     #endif
