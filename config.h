@@ -2,7 +2,7 @@
 #define PORT 8080
 #define MAX_SIZE 4096
 #define MIDDLE_SIZE 256
-#define BREAK_CNT 28
+#define BREAK_CNT 2
 #define MIN_SIZE 16
 #define NAME_LEN 64
 #define DEFAULT_FILE "index.html"
