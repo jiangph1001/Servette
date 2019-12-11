@@ -23,7 +23,6 @@
 // 上传下载文件夹位置
 extern char *file_base_path;
 
-
 /*
 Description:
     判断socket是否关闭
@@ -78,27 +77,26 @@ void response_webpage(int client_sock, char *file)
         //打开文件失败时构造404的相应
         construct_header(header, 404, "text/html");
         write(client_sock, header, strlen(header));
-        return;
+        fd=open("www/err.html",O_RDONLY);
     }
     else
     {
         const char *type = get_type_by_name(file_name);
         construct_header(header, 200, type);
         write(client_sock, header, strlen(header));
-        //write(client_sock,echo_str,strlen(echo_str));
-        while (size)
+    }
+    while (size)
+    {
+        //size代表读取的字节数
+        size = read(fd, buf, MAX_SIZE);
+        if (size > 0)
         {
-            //size代表读取的字节数
-            size = read(fd, buf, MAX_SIZE);
-            if (size > 0)
+            if (judge_socket_closed(client_sock))
             {
-                if(judge_socket_closed(client_sock))
-                {   
-                    printf("传输中断\n");
-                    return;
-                }
-                write(client_sock, buf, size);
+                printf("传输中断\n");
+                return;
             }
+            write(client_sock, buf, size);
         }
     }
 }
@@ -164,7 +162,7 @@ void response_cgi(int client_sock, char *arg)
         {
             // 这里可能还有错误，写的时候对端的TCP连接已经关闭了
             // 会引起servette的异常退出
-            if(judge_socket_closed(client_sock))
+            if (judge_socket_closed(client_sock))
             {
                 printf("传输中断\n");
                 return;
@@ -218,7 +216,7 @@ void response_download(int client_sock, char *arg)
         size = read(fd, buf, MAX_SIZE);
         if (size > 0)
         {
-            if(judge_socket_closed(client_sock))
+            if (judge_socket_closed(client_sock))
             {
                 printf("传输中断\n");
                 return;
@@ -305,11 +303,11 @@ void response_download_chunk(int client_sock, char *arg)
         write(client_sock, chunk_head, strlen(chunk_head));
         if (size > 0)
         {
-            if(judge_socket_closed(client_sock))
+            if (judge_socket_closed(client_sock))
             {
                 printf("传输中断\n");
                 return;
-            }    
+            }
             write(client_sock, buf, size);
         }
         write(client_sock, CRLF, strlen(CRLF));
@@ -483,7 +481,7 @@ int upload_file(int client_sock, char *buffer, char *arg, http_header_chain head
             else
             {
                 //读socket中的数据
-                if(judge_socket_closed(client_sock))
+                if (judge_socket_closed(client_sock))
                 {
                     printf("传输中断\n");
                     return;
@@ -546,7 +544,7 @@ void *do_Method(void *p_client_sock)
     fcntl(client_sock, F_SETFL, flags);
     while (1)
     {
-        if(judge_socket_closed(client_sock))
+        if (judge_socket_closed(client_sock))
         {
             printf("客户端断开连接\n");
             return;
