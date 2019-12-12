@@ -45,6 +45,42 @@ int judge_socket_closed(int client_socket)
     return 1;
 }
 
+
+/*
+Description:
+    非阻塞下的数据写入
+Return:
+    正常返回0
+    socket已关闭时，返回-1
+*/
+int write_sock(int client_sock, char *buf, int size)
+{
+    int w_ret = -1;
+    while(w_ret == -1)
+    {
+        if (judge_socket_closed(client_sock))
+        {
+            printf("传输中断\n");
+            return -1;
+        }
+        w_ret = write(client_sock, buf, size);
+        #ifdef _DEBUG
+        printf("写入:%d\n",w_ret);
+        #endif
+        if(w_ret == -1)
+        {
+            if(errno = EWOULDBLOCK)
+            {
+                printf("缓冲区已满\n");
+            }
+            usleep(20000000);
+        }
+        else
+        {
+            return 0;
+        }        
+    } 
+}
 /*
 Description:
     读取html文件，并显示在网页上
@@ -70,6 +106,11 @@ void response_webpage(int client_sock, char *file)
     {
         sprintf(file_name, "%s%s", HTML_DIR, file);
     }
+    int pos = kmp(file_name,"?",strlen(file_name));
+    if(pos != -1)
+    {
+        file_name[pos] = '\0';
+    }
     //读取文件
     fd = open(file_name, O_RDONLY);
     if (fd == -1)
@@ -91,12 +132,8 @@ void response_webpage(int client_sock, char *file)
         size = read(fd, buf, MAX_SIZE);
         if (size > 0)
         {
-            if (judge_socket_closed(client_sock))
-            {
-                printf("传输中断\n");
-                return;
-            }
-            write(client_sock, buf, size);
+            write_sock(client_sock, buf, size);
+            usleep(9000);
         }
     }
 }
@@ -130,7 +167,7 @@ void response_cgi(int client_sock, char *arg)
     int size = -1;
     char html[MAX_SIZE], header[MAX_SIZE];
     char dir_name[NAME_LEN];
-    if (sscanf(arg, "/?cgi-bin=%s", dir_name) == EOF)
+    if (sscanf(arg, "?cgi-bin=%s", dir_name) == EOF)
     {
         //匹配失败！
         printf("error:%s\n", arg);
@@ -191,7 +228,7 @@ void response_download(int client_sock, char *arg)
     int size = -1;
     char buf[MAX_SIZE], header[MAX_SIZE];
     char file_name[NAME_LEN];
-    if (sscanf(arg, "/?download=%s", file_name) == EOF)
+    if (sscanf(arg, "?download=%s", file_name) == EOF)
     {
         //匹配失败！
         printf("error:%s\n", arg);
@@ -243,7 +280,7 @@ void response_download_chunk(int client_sock, char *arg)
     ssize_t size = -1;
     char buf[MAX_SIZE], header[MAX_SIZE], *chunk_head;
     char file_name[NAME_LEN];
-    if (sscanf(arg, "/?download=%s", file_name) == EOF)
+    if (sscanf(arg, "?download=%s", file_name) == EOF)
     {
         //匹配失败！
         printf("error:%s\n", arg);
@@ -252,12 +289,6 @@ void response_download_chunk(int client_sock, char *arg)
         return;
     }
     fd = open(file_name, O_RDONLY);
-    // FILE *fp = fopen(file_name,"rb");
-    // if(fp == NULL)
-    // {
-    //     construct_header(header, 404, "text/html");
-    //      write(client_sock, header, strlen(header));
-    // }
     if (fd == -1)
     {
         construct_header(header, 404, "text/html");
@@ -269,20 +300,6 @@ void response_download_chunk(int client_sock, char *arg)
     printf("\tdownloading %s\n", file_name);
     construct_download_header(header, 200, file_name);
     write(client_sock, header, strlen(header));
-
-    // while(fgets(buf,MAX_SIZE,fp) != NULL)
-    // {
-    //     size = read(fd, buf, MAX_SIZE);
-    //     chunk_head = (char *)malloc(MIN_SIZE * sizeof(char));
-    //     sprintf(chunk_head, "%x\r\n", size); //需要转换为16进制
-    //     send(client_sock, chunk_head, strlen(chunk_head), 0);
-    //     if (size > 0)
-    //     {
-    //         send(client_sock, buf, size, 0);
-    //     }
-    //     send(client_sock, CRLF, strlen(CRLF), 0);
-    //     free(chunk_head);
-    // }
     int flag = 1;
     while (size)
     {
@@ -301,14 +318,15 @@ void response_download_chunk(int client_sock, char *arg)
         chunk_head = (char *)malloc(MIN_SIZE * sizeof(char));
         sprintf(chunk_head, "%x\r\n", size); //需要转换为16进制
         write(client_sock, chunk_head, strlen(chunk_head));
+        int ws_ret;
         if (size > 0)
         {
-            if (judge_socket_closed(client_sock))
+            ws_ret = write_sock(client_sock,buf,size);
+            if(ws_ret == -1)
             {
-                printf("传输中断\n");
+                //出现客户端关闭的情况
                 return;
             }
-            write(client_sock, buf, size);
         }
         write(client_sock, CRLF, strlen(CRLF));
         free(chunk_head);
@@ -484,9 +502,10 @@ int upload_file(int client_sock, char *buffer, char *arg, http_header_chain head
                 if (judge_socket_closed(client_sock))
                 {
                     printf("传输中断\n");
-                    return;
+                    //return;
                 }
                 size_of_buffer = read(client_sock, buffer, MAX_SIZE);
+                usleep(300000);
                 printf("从socket中读出的量：%d\n", size_of_buffer);
                 pos_of_buffer = 0;
             }
@@ -544,11 +563,7 @@ void *do_Method(void *p_client_sock)
     fcntl(client_sock, F_SETFL, flags);
     while (1)
     {
-        if (judge_socket_closed(client_sock))
-        {
-            printf("客户端断开连接\n");
-            return;
-        }
+        
         char methods[5]; //GET or POST
         char *buffer, *message;
         buffer = (char *)malloc(MAX_SIZE * sizeof(char));
@@ -567,6 +582,11 @@ void *do_Method(void *p_client_sock)
         }
         else if (size_of_buffer <= 0)
         {
+            if (judge_socket_closed(client_sock))
+            {
+                printf("客户端断开连接\n");
+                return;
+            }
             //此处大部分情况为出现空的包，以后考虑如何处理
             printf("buffer长度异常,长度为%d\n", size_of_buffer);
             continue;
@@ -594,20 +614,20 @@ void *do_Method(void *p_client_sock)
         int keep_alive = get_http_header_content("Connection", Connection, &headers, MAX_SIZE);
 
         decode_message(message);
-
+        int pos;
         switch (methods[0])
         {
         // GET
         case 'G':
             // 当message字符串开始就出现"/?download="子串时
-            if (kmp(message, "/?download=", strlen(message)) == 0)
+            if ((pos = kmp(message, "?download=", strlen(message))) != -1)
             {
-                response_download_chunk(client_sock, message);
+                response_download_chunk(client_sock, message + pos);
             }
-            else if (kmp(message, "/?cgi-bin=", strlen(message)) == 0)
+            else if ((pos = kmp(message, "?cgi-bin=", strlen(message)))!= -1)
             // 当message字符串开始就出现"/?cgi-bin="子串时
             {
-                response_cgi(client_sock, message);
+                response_cgi(client_sock, message + pos);
             }
             else
             {

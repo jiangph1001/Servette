@@ -22,8 +22,9 @@ void output_error_html(char * file_base_path, char * dir_path, char * error_code
     printf("<!DOCTYPE>\n");
     printf("<html>\n");
     printf("<head> <meta charset=\"UTF-8\"> </head>\n");
+    printf("<title>Servette</title>\n");
     printf("<body>\n");
-    printf("<h1> Naive File Server </h1>\n");
+    printf("<h1> Servette </h1>\n");
     printf("<hr/ >\n");
 
     // 输出错误信息和提示
@@ -121,7 +122,7 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
             {
                 // 是目录
                 printf("<tr>\n");
-                printf("<th><a href=\"/?cgi-bin=%s\">%s</a></th>", file_path, file_in_dir->d_name);
+                printf("<th>><a href=\"/?cgi-bin=%s\">%s</a></th>", file_path, file_in_dir->d_name);
                 printf("<th>目录</th>\n");
                 printf("</tr>\n");
             }
@@ -129,7 +130,7 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
             {
                 // 是文件
                 printf("<tr>\n");
-                printf("<th><a href=\"/?download=%s\" target=\"_blank\">%s</a></th>", file_path, file_in_dir->d_name);
+                printf("<th>&nbsp;<a href=\"/?download=%s\" target=\"_blank\">%s</a></th>", file_path, file_in_dir->d_name);
                 printf("<th>文件</th>\n");
                 printf("</tr>\n");
             }

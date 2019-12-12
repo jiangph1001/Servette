@@ -1,42 +1,79 @@
-<!DOCTYPE>
+<!DOCTYPE HTML>
 <html>
-<meta charset="UTF-8">
-
-
 <head>
-    <h1> Naive File Server </h1>
-    <h2>Servette文件服务器</h2>
+<meta charset="utf-8">
+<title>Servette</title>
+<link rel="stylesheet" type="text/css" href="style.css"/>
+<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="css/font-awesome.min.css"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href='https://fonts.useso.com/css?family=Pacifico' rel='stylesheet' type='text/css'>
+<link href='https://fonts.useso.com/css?family=Lato:400,900,700,300,100' rel='stylesheet' type='text/css'>
+<link href='https://fonts.useso.com/css?family=Roboto+Slab:400,700,300,100' rel='stylesheet' type='text/css'>
+<script src="https://ajax.useso.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 </head>
 
 <body>
+<div class="header">
+	<div class="container">
+    	<div class="row">
+        	<div class="col-md-12 col-sm-12 col-xs-12">
+            	<div class="logo pull-left col-md-6 col-sm-6 col-xs-12">
+                	<h1>UCAS</h1>
+                </div>
+                <div class="social col-md-6 col-sm-6 col-xs-12">
+            		<ul class="pull-right">
+                        <li><a href="https://github.com/jiangph1001/Servette"><i class="fa fa-github"></i></a></li>
+                    </ul>
+                </div>
+                
+            </div>
+            <div class="col-md-12 col-sm-12 col-xs-12">
+            	<div class="main-title text-center">
+                	<h2>Servette</h2>
+                    <p>基于socket编程的http文件服务器</p>
+                    <div id="countdown" data-wow-delay=".3s" data-date="Dec 26, 2015 06:00:00"></div>
+                    <a href="/?cgi-bin=/root" class="subscribe-tag page-scroll">进入</a>
+                </div>
+                
+                	
+            </div>
+        </div>
+    </div>
+</div>
+<div class="about text-center">
+	<div class="container">
+    	<div class="row">
+        	<div class="col-md-12">
+            	<div class="title">
+                	<h3>项目介绍</h3>
+                </div>
+                <div class="desc">
+                	<p>计算机网络实验：使用C语言实现http服务器，支持文件的上传和下载，keep-alive,chunk,多线程并发</p>
+                </div>
+            </div>
+            <div class="featurebox col-md-12 col-sm-12 col-xs-12">
+            <div class="col-md-6 col-sm-6 col-xs-12">
+            	<div class="feature text-left">
+                	<h4>使用方法</h4>
+                    <p>网页读取，将文件放于www目录下即可 <br>
+                        文件下载：/?download=[文件名] <br>
+                        文件管理：/?cgi-bin=[文件目录] </p>
+                </div>
+            </div>
+            <div class="col-md-6 col-sm-6 col-xs-12">
+            	<div class="feature text-left">
+                	<h4>关于作者</h4>
+                    <p>姜鹏辉   --信息工程研究所 2019级硕士<br>
+                    许珉瑞     --信息工程研究所 2019级硕士<br>
+                    <a href=https://github.com/jiangph1001/Servette>项目源码</a>
+                </p>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    <hr>
-    <p>
-        <font size=5>
-            文件下载API：/?download=[文件名] <br>
-            CGI功能入口：/?cgi-bin=[文件目录] <br>
-            <hr>
-            默认为读取用户目录<br>（即root用户读取/root， 普通用户读取/home/[用户名]）<br>
-            如果你是root用户，<a href="/?cgi-bin=/root">点此</a>
-
-
-            <hr />
-            功能：
-            <ul>
-                <li>显示网页</li>
-                <li>上传文件</li>
-                <li>下载文件</li>
-                <li>支持keep-alive</li>
-                <li>支持chunk</li>
-                <li>支持多路并发</li>
-            </ul>
-        </font>
-    </p>
-    <hr>
-    <footer style="clear:both;text-align:center;">
-        <img src="./github.jpg" width="42" height="42"><br>
-        <a href="https://github.com/jiangph1001/Servette">https://github.com/jiangph1001/Servette</a>
-    </footer>
 </body>
-
 </html>

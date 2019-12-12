@@ -1,0 +1,279 @@
+.header
+{
+	background: url(images/bg.jpg) no-repeat 0% 0%/100% 100%;
+	padding: 70px 0px 100px;
+}
+a
+{
+	outline: none !important;
+}
+.logo h1
+{
+	font-family: 'Pacifico', cursive;
+	color: #fff;
+	margin-top: 0px !important;
+}
+.social ul
+{
+	list-style: none;
+	padding-left: 0px;
+}
+.social ul li
+{
+	display: inline-block;
+}
+.social ul li a
+{
+	text-decoration: none;
+}
+.social ul li a i
+{
+	text-align: center;
+	color: #fff;
+	border: 1px solid #fff;
+	display: block;
+	border-radius: 50%;
+	width: 40px;
+	height: 40px;
+	font-size: 20px;
+	line-height: 40px;
+	transition: all 0.3s ease-in;
+}
+.social ul li a:hover i
+{
+
+	border: 1px solid #d45544;
+}
+.main-title
+{
+	padding: 80px 0px 0px;
+}
+.main-title h2
+{
+	font-family: 'Lato', sans-serif;
+	font-weight: 700;
+	font-size: 70px;
+	color: #d45544;
+	text-shadow: 0px 2px 0px #852215;
+	}
+.main-title p
+{
+	font-family: 'Roboto Slab', serif;
+	color: white;
+	font-size: 33px;
+	padding: 10px 0px;
+	width: 100%;
+	margin: 0 auto !important;
+	font-weight: 900;
+	-webkit-text-stroke: 0.4px black;
+}
+#countdown {
+    text-align: center;
+    margin: 70px 0px 60px;
+    min-height: 104px;
+}
+#countdown > div {
+    width: 14%;
+    margin: 0px 1%;
+    display: inline-block;
+    font-size: 68px;
+    line-height: 52px;
+    position: relative;
+    font-weight: 700;
+	color: #fff;
+}
+#countdown span {
+    font-size: 12px;
+    font-weight: normal;
+    text-transform: uppercase;
+    font-family: 'Roboto Slab', serif;
+    display: block;
+}
+.subscribe-tag
+{
+	font-family: "Roboto Slab",serif;
+	font-weight: 400;
+	padding: 15px 25px;
+	font-size: 18px;
+	border-radius: 46px;
+	background-color: #D45544;
+	color: #FFF;
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	text-decoration: none;
+	transition: all 0.3s ease-in;
+}
+.subscribe-tag:hover
+{
+	color: #d45544;
+	background: #fff;
+	text-decoration: none;
+}
+.about
+{
+	padding: 70px 0px 50px;
+}
+.title h3
+{
+	font-family: 'Lato', sans-serif;
+	font-weight: 700;
+	font-size: 45px;
+}
+.desc p
+{
+	font-family: "Roboto Slab",serif;
+	font-weight: 300;
+	font-size: 20px;
+	padding: 30px 0px 50px !important;
+	margin: 0 auto;
+	color: #242424;
+}
+.desc
+{
+	border-bottom: 1px solid rgba(204,204,204,0.5);
+}
+.featurebox
+{
+	padding: 40px 0px 0px;
+}
+.feature
+{
+	padding-bottom: 20px;
+}
+.feature h4
+{
+	font-family: 'Lato', sans-serif;
+	font-weight: 700;
+	font-size: 20px;
+	color: #d45544;
+}
+.feature p
+{
+	font-family: "Roboto Slab",serif;
+	font-weight: 300;
+	font-size: 15px;
+	width: 90%;
+	color: #888;
+}
+.footer
+{
+	background-color: #3c558b;
+	padding: 70px 0px;
+}
+.footer-title h3
+{
+	font-family: 'Lato', sans-serif;
+	font-weight: 400;
+	font-size: 30px;
+	color: #fff;
+}
+.footer-title p
+{
+	font-family: "Roboto Slab",serif;
+	font-weight: 300;
+	font-size: 20px;
+	padding: 10px 0px 40px !important;
+	margin: 0 auto;
+	color: #000;
+}
+.subscribeform {
+    width: 100%;
+    max-width: 530px;
+    margin: 0px auto 50px;
+	padding-bottom: 50px;
+	padding-top: 30px;
+}
+.subscribe_form {
+    position: relative;
+}
+.subscribe_form .email {
+    height: 60px;
+	border: none;
+	width: 100%;
+	padding: 10px;
+	font-family: 'Lato', sans-serif;
+	font-size: 15px;
+}
+.subscribe_form .subscribe {
+    right: 0px;
+	top: 0px;
+	width: 160px;
+	height: 60px;
+	position: absolute;
+	color: #FFF;
+	background-color: #d45544;
+	border: medium none;
+	border-bottom-left-radius: 0px;
+	border-top-left-radius: 0px;
+	font-family: "Roboto Slab",serif;
+	font-size: 18px;
+	}
+.footer-line p
+{
+	color: #fff;
+	font-family: 'Lato', sans-serif;
+	font-weight: 400;
+	font-size: 16px;
+	padding: 40px 0px 0px;
+	letter-spacing: 1px;
+}
+.footer-line p a
+{
+	color: #d45544;
+	text-decoration: none;
+}
+@media (min-width: 200px) and (max-width: 767px) {
+.main-title {
+    padding: 40px 0px 0px;
+}
+.main-title h2 {
+    font-size: 40px;
+}
+.pull-left
+{
+	float: none !important;
+	text-align: center !important;
+}
+.social
+{
+	padding-top: 20px;
+}
+.social .pull-right
+{
+	float: none !important;
+	text-align: center !important;
+}
+.main-title p {
+    font-family: "Roboto Slab",serif;
+    font-size: 18px;
+    width: 100%;
+}
+#countdown {
+    margin: 30px 0px 45px;
+}
+#countdown > div {
+    width: 20%;
+    margin: 0px 1%;
+    display: inline-block;
+    font-size: 30px;
+    line-height: 40px;
+    font-weight: 700;
+}
+#countdown span {
+    font-size: 9px;
+}
+desc p {
+    font-size: 15px;
+}
+.footer-title p {
+    font-size: 15px;
+}
+.footer-title h3 {
+    font-size: 24px;
+}
+.subscribe_form .subscribe {
+
+    width: 100px;
+    font-size: 15px;
+}
+}
