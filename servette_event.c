@@ -173,8 +173,8 @@ Description:
  */
 void on_accept(int sock, short event, void *arg)
 {
-    while(1)
-    {
+    // while(1)
+    // {
         struct sockaddr_in client_addr;
         socklen_t len = sizeof(client_addr);
         
@@ -186,10 +186,25 @@ void on_accept(int sock, short event, void *arg)
         }
         printf("new accept :%d\n", client_sock);
         //accept_new_thread(new_fd);
-        pthread_t tid;
-        pthread_create(&tid, NULL, new_process, &client_sock);
+        // pthread_t tid;
+        // pthread_create(&tid, NULL, new_process, &client_sock);
         //pthread_join(tid, NULL); // // // //
-    }
+
+            //初始化base,写事件和读事件
+        struct event_base *base = event_base_new();
+        struct event *read_ev = (struct event *)malloc(sizeof(struct event)); //发生读事件后，从socket中取出数据
+
+        //将base，read_ev,write_ev封装到一个event_struct对象里，便于销毁
+        struct sock_ev *event_struct = (struct sock_ev *)malloc(sizeof(struct sock_ev));
+        event_struct->base = base;
+        event_struct->read_ev = read_ev;
+        //对读事件进行相应的设置
+        event_set(read_ev, client_sock, EV_READ | EV_PERSIST, on_read, event_struct);
+        event_base_set(base, read_ev);
+        event_add(read_ev, NULL);
+        //开始libevent的loop循环
+        event_base_dispatch(base);
+    //}
 }
 
 /*

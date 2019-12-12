@@ -53,7 +53,7 @@ Return:
     正常返回0
     socket已关闭时，返回-1
 */
-int write_sock(int client_sock, char *buf, int size)
+int write_socket(int client_sock, char *buf, int size)
 {
     int w_ret = -1;
     while(w_ret == -1)
@@ -132,7 +132,7 @@ void response_webpage(int client_sock, char *file)
         size = read(fd, buf, MAX_SIZE);
         if (size > 0)
         {
-            write_sock(client_sock, buf, size);
+            write_socket(client_sock, buf, size);
             usleep(9000);
         }
     }
@@ -321,7 +321,7 @@ void response_download_chunk(int client_sock, char *arg)
         int ws_ret;
         if (size > 0)
         {
-            ws_ret = write_sock(client_sock,buf,size);
+            ws_ret = write_socket(client_sock,buf,size);
             if(ws_ret == -1)
             {
                 //出现客户端关闭的情况
@@ -390,7 +390,7 @@ int upload_file(int client_sock, char *buffer, char *arg, http_header_chain head
     // 这里可能空指针
     if (char_pointer == NULL)
     {
-        strncpy(temp, "/?cgi-bin=", sizeof(temp));
+        strncpy(temp, "?cgi-bin=", sizeof(temp));
         strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
         response_cgi(client_sock, temp);
         return 0;
@@ -430,7 +430,7 @@ int upload_file(int client_sock, char *buffer, char *arg, http_header_chain head
     // 这里可能空指针
     if (char_pointer == NULL)
     {
-        strncpy(temp, "/?cgi-bin=", sizeof(temp));
+        strncpy(temp, "?cgi-bin=", sizeof(temp));
         strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
         response_cgi(client_sock, temp);
         return 0;
@@ -459,7 +459,7 @@ int upload_file(int client_sock, char *buffer, char *arg, http_header_chain head
         //strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
 
         //这个文件已经存在了，就不让上传了
-        strncpy(temp, "/?cgi-bin=", sizeof(temp));
+        strncpy(temp, "?cgi-bin=", sizeof(temp));
         strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
         response_cgi(client_sock, temp);
         return 0;
@@ -533,7 +533,7 @@ int upload_file(int client_sock, char *buffer, char *arg, http_header_chain head
     }
 
     //重新显示这个页面
-    strncpy(temp, "/?cgi-bin=", sizeof(temp));
+    strncpy(temp, "?cgi-bin=", sizeof(temp));
     strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
     response_cgi(client_sock, temp);
     return 0;
@@ -564,8 +564,9 @@ void *do_Method(void *p_client_sock)
     while (1)
     {
         
-        char methods[5]; //GET or POST
-        char *buffer, *message;
+        char *methods,*message;
+        methods = (char *)malloc(MAX_SIZE * sizeof(char));
+        //如果发送的请求特别的非法，比如第一个字符串长度超过了5，就会段错误，所以这里将methods长度增长
         buffer = (char *)malloc(MAX_SIZE * sizeof(char));
         message = (char *)malloc(MIDDLE_SIZE * sizeof(char));
         int size_of_buffer = read(client_sock, buffer, MAX_SIZE);
@@ -605,11 +606,15 @@ void *do_Method(void *p_client_sock)
             response_echo(client_sock, buffer);
             continue;
         }
+
+        //可以考虑将下述几行移到switch里面。
         //获得所有的首部行组成的链表
         http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
         //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
         int begin_pos_of_http_content = get_http_headers(buffer, &headers);
         //print_http_headers(&headers);
+
+        
         Connection = (char *)malloc(MIN_SIZE * sizeof(char));
         int keep_alive = get_http_header_content("Connection", Connection, &headers, MAX_SIZE);
 
