@@ -4,7 +4,6 @@
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
-#include <event2/thread.h>
 #include <event2/bufferevent_struct.h>
 
 #include <pthread.h>
@@ -12,6 +11,7 @@
 #include "response.h"
 
 char *file_base_path;
+char file_name[20][MIDDLE_SIZE];
 
 /*
 Description:
@@ -40,13 +40,6 @@ void response_cgi_Event(struct bufferevent *bev, char *arg)
     {
         //调用CGI程序，完成文件列表显示页面的构造
         char cmd[MIDDLE_SIZE];
-        // strncpy(cmd, "cgi-bin/filelist ", sizeof(cmd) - 1);
-        // strncat(cmd, dir_name, sizeof(cmd) - strlen(cmd) - 1);
-        // printf("%s \n",cmd);
-        // strncat(cmd, " ", sizeof(cmd) - strlen(cmd) - 1);
-        // printf("%s \n",cmd);
-        // strncat(cmd, file_base_path, sizeof(cmd) - strlen(cmd) - 1);
-        // printf("%s \n",cmd);
         sprintf(cmd, "cgi-bin/filelist %s %s", dir_name, file_base_path);
         printf("%s \n", cmd);
         FILE *fp = popen(cmd, "r");
@@ -125,7 +118,6 @@ int upload_file_Event(struct bufferevent *bev, char *buffer, char *arg, http_hea
     sprintf(boundary,"--%s",temp);
 
     printf("boundary: %s \n", boundary);
-    printf("hhh\n");
     //begin_pos_of_http_content很重要, HTTP数据包在这一点之后就是http数据包的实体部分
     //使用pos_of_buffer来显示现在读取的buffer的位置
     int pos_of_buffer = begin_pos_of_http_content;
@@ -163,15 +155,6 @@ int upload_file_Event(struct bufferevent *bev, char *buffer, char *arg, http_hea
 
     if (access(temp, F_OK) != -1)
     {
-        //这个文件已经存在了，就给文件名前面加上"new_"
-
-        //strncpy(temp, "new_", sizeof(temp) - 1);
-        //strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
-        //strncpy(filename, temp, sizeof(filename) - 1);
-        //strncpy(temp, arg, sizeof(temp) - 1);
-        //strncat(temp, "/", sizeof(temp) - strlen(temp) - 1);
-        //strncat(temp, filename, sizeof(temp) - strlen(temp) - 1);
-
         //这个文件已经存在了，就不让上传了
         strncpy(temp, "?cgi-bin=", sizeof(temp));
         strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
@@ -244,11 +227,14 @@ int upload_file_Event(struct bufferevent *bev, char *buffer, char *arg, http_hea
     //重新显示这个页面
     strncpy(temp, "?cgi-bin=", sizeof(temp));
     strncat(temp, arg, sizeof(temp) - strlen(temp) - 1);
-    printf("temp:%s\n",temp);
     response_cgi_Event(bev, temp);
     return 0;
 }
 
+upload_file_Event_Continue(struct bufferevent *bev, char *buffer)
+{
+
+}
 
 
 /*
@@ -342,6 +328,7 @@ Return:
 void response_webpage_Event(struct bufferevent *bev, char *file)
 {
     int fd;
+
     char buf[MAX_SIZE], header[MAX_SIZE];
     int size = -1;
     char *file_name;
@@ -387,9 +374,34 @@ void response_webpage_Event(struct bufferevent *bev, char *file)
     }
     bufferevent_write(bev, CRLF, strlen(CRLF));
 }
-
-void do_Method_Event(struct bufferevent *bev, char *buffer)
+/*
+Description:
+    读事件回调函数
+Parameters:
+    struct bufferevent *bev [IN]
+    void *arg [IN] 自定义的参数,即_new_bind函数中的第三个参数
+Return:
+    NULL
+*/
+void socket_read_cb(struct bufferevent *bev, void *arg)
 {
+    static int fd_list[100];
+    char buffer[MAX_SIZE];
+    int fd = *(int *)arg ;//代表当前打开的socket的文件描述符
+    
+    size_t len = bufferevent_read(bev, buffer, sizeof(buffer) - 1);
+    buffer[len] = '\0';
+    printf("fd_list: %d\n",fd_list[fd]);
+    if(fd_list[fd] > 0)
+    {
+        printf("还有%d字节需要读取\n",fd_list[fd]);
+        fd_list[fd]-=len;
+
+        return;
+    }
+
+    printf("\n\nGet Ruquest:\n--------\n%s\n--------\n",buffer);
+    //do_Method_Event(bev, buffer);
     char *methods,*message;
     message = (char *)malloc(MIDDLE_SIZE * sizeof(char));
     methods = (char *)malloc(MAX_SIZE * sizeof(char));
@@ -402,10 +414,28 @@ void do_Method_Event(struct bufferevent *bev, char *buffer)
         return;
     }
 
+    //libevent版的默认进入cgi页面
+    if (strcmp(message, "/") == 0)
+    {
+        sprintf(message,"/?cgi-bin=/root");
+    }
     //获得所有的首部行组成的链表
     http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
     //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
     int begin_pos_of_http_content = get_http_headers(buffer, &headers);
+
+    char *ContentLength = (char *)malloc(MIN_SIZE * sizeof(char));
+    int cl_ret = get_http_header_content("Content-Length", ContentLength, &headers, MAX_SIZE);
+    if(cl_ret == 0)
+    {
+        printf("Content-Length:%s\n",ContentLength);
+        int content_length = atoi(ContentLength);
+        int remain = content_length - len;
+        printf("读了%d,%d待读取\n",len,remain);
+        if(remain<0);
+            fd_list[fd]=remain;
+    }
+
     decode_message(message);
     int pos;
     switch (methods[0])
@@ -433,27 +463,6 @@ void do_Method_Event(struct bufferevent *bev, char *buffer)
         printf("不支持的请求:\n");
         response_echo_Event(bev, buffer);
     }
-}
-
-/*
-Description:
-    读事件回调函数
-Parameters:
-    struct bufferevent *bev [IN]
-    void *arg [IN] 自定义的参数,即_new_bind函数中的第三个参数
-Return:
-    NULL
-*/
-void socket_read_cb(struct bufferevent *bev, void *arg)
-{
-    char buffer[MAX_SIZE];
-    size_t len = bufferevent_read(bev, buffer, sizeof(buffer) - 1);
-
-    buffer[len] = '\0';
-    printf("Ruquest:\n--------\n%s\n--------\n", buffer);
-    do_Method_Event(bev, buffer);
-    // char reply[] = "HTTP/1.1 200 OK\r\n\r\n <h1>test</h1>";
-    // bufferevent_write(bev, reply, strlen(reply));
 }
 
 /*
@@ -507,6 +516,8 @@ void listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
 {
 
     printf("accept a client %d\n", fd);
+    int *p_fd;
+    *p_fd = fd;
     struct event_base *base;
     struct bufferevent *bev;
 
@@ -518,7 +529,7 @@ void listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
     // printf("写超时：%d %d\n", bev->timeout_write.tv_sec, bev->timeout_write.tv_usec);
     //第三个参数为write_cb，暂不设置
     //
-    bufferevent_setcb(bev, socket_read_cb, socket_write_cb, socket_event_cb, NULL);
+    bufferevent_setcb(bev, socket_read_cb, socket_write_cb, socket_event_cb, p_fd);
     bufferevent_enable(bev, EV_READ);
 }
 int main(int argc, const char *argv[])

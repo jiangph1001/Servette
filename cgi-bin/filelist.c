@@ -6,6 +6,20 @@
 
 #include "../config.h"
 
+
+
+void output_headers()
+{
+    printf("<!DOCTYPE>\n");
+    printf("<html>\n");
+    printf("<head> <meta charset=\"UTF-8\"> </head>\n");
+    printf("<title>Servette</title>\n");
+    printf("<body>\n");
+    printf("<h1> Servette </h1>\n");
+    printf("<h2> http文件服务器 </h2>\n");
+    printf("<hr/ >\n");
+}
+
 /*
 Description:
     生成错误提示的html代码
@@ -19,18 +33,12 @@ Return:
 void output_error_html(char * file_base_path, char * dir_path, char * error_code)
 {
     // 输出HTML
-    printf("<!DOCTYPE>\n");
-    printf("<html>\n");
-    printf("<head> <meta charset=\"UTF-8\"> </head>\n");
-    printf("<title>Servette</title>\n");
-    printf("<body>\n");
-    printf("<h1> Servette </h1>\n");
-    printf("<hr/ >\n");
+
 
     // 输出错误信息和提示
-    printf("<p> The folder you want to access is %s </p>\n", dir_path);
+    printf("<p> 无法访问 %s</p>\n", dir_path);
     printf("<p> %s </p>\n", error_code);
-    printf("<a href=\"/?cgi-bin=%s\">Click here to reach the basic folder.</a>\n", file_base_path);
+    printf("<a href=\"/?cgi-bin=%s\">点此返回%s</a>\n", file_base_path,file_base_path);
 
     printf("<hr/ >\n");
     printf("</body>\n");
@@ -65,12 +73,7 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
 
 
         // 输出HTML
-        printf("<!DOCTYPE>\n");
-        printf("<html>\n");
-        printf("<head> <meta charset=\"UTF-8\"> </head>\n");
-        printf("<body>\n");
-        printf("<h1> Naive File Server </h1>\n");
-        printf("<hr/ >\n");
+        output_headers();
 
         // action这里填入当前显示的目录页面
         printf("<form action = \"%s\" method=\"post\" enctype=\"multipart/form-data\">\n", dir_path);
@@ -165,7 +168,7 @@ int main(int argc, char* argv[])
 {
     if(argc != 3)
     {
-        printf("no argc");
+        printf("参数错误\n");
         return 0;
     }
         
@@ -176,16 +179,18 @@ int main(int argc, char* argv[])
     char * char_pointer = strstr(dir_path, file_base_path);
     if( char_pointer == NULL || char_pointer != dir_path )
     {
+        output_headers();
         // 不在
-        output_error_html(file_base_path, dir_path, "This folder is not accessible or does not exist");
+        output_error_html(file_base_path, dir_path, "文件夹不存在或无法访问");
         return 0;
     }
 
     // 检查dir_path目录是否存在
     if( access(dir_path, F_OK) != 0 )
     {
+        output_headers();
         // 不存在
-        output_error_html(file_base_path, dir_path, "This folder or file does not exist");
+        output_error_html(file_base_path, dir_path, "文件夹不存在");
         return 0;
     }
 
@@ -202,7 +207,7 @@ int main(int argc, char* argv[])
     else
     {
         // 是文件
-        output_error_html(file_base_path, dir_path, "It's not a folder. This is a regular file");
+        output_error_html(file_base_path, dir_path, "这不是文件夹，是一个文件");
     }
     return 0;
 }

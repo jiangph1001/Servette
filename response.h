@@ -564,7 +564,7 @@ void *do_Method(void *p_client_sock)
     while (1)
     {
         
-        char *methods,*message;
+        char *methods,*message,*buffer;
         methods = (char *)malloc(MAX_SIZE * sizeof(char));
         //如果发送的请求特别的非法，比如第一个字符串长度超过了5，就会段错误，所以这里将methods长度增长
         buffer = (char *)malloc(MAX_SIZE * sizeof(char));
