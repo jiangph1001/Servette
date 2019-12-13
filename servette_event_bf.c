@@ -306,7 +306,8 @@ void response_download_chunk_Event(struct bufferevent *bev, char *arg)
         int ws_ret;
         if (size > 0)
         {
-            bufferevent_write(bev, buf, size);
+            ws_ret = bufferevent_write(bev, buf, size);
+            printf("写入结果:%d\n",ws_ret);
         }
         bufferevent_write(bev, CRLF, strlen(CRLF));
         free(chunk_head);
@@ -414,11 +415,6 @@ void socket_read_cb(struct bufferevent *bev, void *arg)
         return;
     }
 
-    //libevent版的默认进入cgi页面
-    if (strcmp(message, "/") == 0)
-    {
-        sprintf(message,"/?cgi-bin=/root");
-    }
     //获得所有的首部行组成的链表
     http_header_chain headers = (http_header_chain)malloc(sizeof(_http_header_chain));
     //begin_pos_of_http_content是buffer中可能存在的HTTP内容部分的起始位置, GET报文是没有的，POST报文有
@@ -472,7 +468,7 @@ Description:
 void socket_write_cb(struct bufferevent *bev, void *arg)
 {
     //do_nothing
-    printf("开始写了\n");
+    //printf("开始写了\n");
 }
 
 /*
@@ -523,15 +519,24 @@ void listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
 
     base = (struct event_base *)arg;
     bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
-    // printf("写水位:%d %d\n", bev->wm_write.high, bev->wm_write.low);
-    // printf("读水位:%d %d\n", bev->wm_read.high, bev->wm_read.low);
+    
     // bev->timeout_write.tv_sec = 1;
-    // printf("写超时：%d %d\n", bev->timeout_write.tv_sec, bev->timeout_write.tv_usec);
+    struct timeval *t = (struct timeval *)malloc(sizeof(struct timeval));
+    t->tv_sec = 3;
+    t->tv_usec = 0;
+    bufferevent_set_timeouts(bev,t,t);//设置写超时为3秒
+    bufferevent_setwatermark(bev,EV_READ | EV_WRITE,0,MAX_SIZE);
+    printf("写水位:%d %d\n", bev->wm_write.high, bev->wm_write.low);
+    printf("读水位:%d %d\n", bev->wm_read.high, bev->wm_read.low);
+    //rintf("写超时：%d %d\n", bev->timeout_write.tv_sec, bev->timeout_write.tv_usec);
     //第三个参数为write_cb，暂不设置
     //
     bufferevent_setcb(bev, socket_read_cb, socket_write_cb, socket_event_cb, p_fd);
     bufferevent_enable(bev, EV_READ);
 }
+
+
+
 int main(int argc, const char *argv[])
 {
     struct event_base *base;
