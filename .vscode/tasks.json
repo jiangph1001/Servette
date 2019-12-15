@@ -9,10 +9,19 @@
                 "${file}",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",
-                "-pthread"
+                "-pthread",
+                "-I/usr/local/openssl/include",
+                "-L/usr/local/openssl/lib",
+                "-lssl",
+                "-lcrypto"
             ],
             "options": {
                 "cwd": "/usr/bin"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
             }
         }
     ],

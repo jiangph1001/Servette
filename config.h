@@ -16,5 +16,15 @@
 #define FILE_DIR "/file"
 #define SELECT_SOCKET 0
 #define SELECT_LIBEVENT 1
+
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 const char *CRLF ="\r\n";
 const unsigned int select_mode = SELECT_SOCKET;
+
+// 这个数据结构用来向新开的线程传递参数
+typedef struct do_method_para_st{
+    int client_sock;
+    SSL * client_ssl;
+}* p_do_method_para;

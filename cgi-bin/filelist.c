@@ -72,7 +72,7 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
         printf("<hr/ >\n");
 
         // action这里填入当前显示的目录页面
-        printf("<form action = \"%s\" method=\"post\" enctype=\"multipart/form-data\">\n", file_base_path);
+        printf("<form action = \"%s\" method=\"post\" enctype=\"multipart/form-data\">\n", dir_path);
         printf("<label for=\"file\">文件名：</label>\n");
         printf("<input type=\"file\" name=\"file\" id=\"file\" />\n");
         printf("<br />\n");

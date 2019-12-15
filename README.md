@@ -51,5 +51,15 @@ localhost:8080
 - 默认为读取用户目录（即root用户读取`/root`， 普通用户读取`/home/[用户名]`）
 - 端口号通过`config.h`修改，修改后需要重新编译（后续通过配置文件读取）
 
+### SSL部分
+- 请安装并使用openssl-1.1.1版本编译，我的openssl安装在了 /usr/local/openssl/ 文件夹中
+- 请将 源码目录下 cert/cacert.cer 导入浏览器的“受信任的根证书颁发机构”中
+- 编译命令为：
+- gcc -g servettr_ssl.c -o servette_ssl -pthread -I/usr/local/openssl/include -L/usr/local/openssl/lib -lssl -lcrypto
+- 因为我不会写makefile，你可以补上
+- 执行命令为./servette_ssl
+- 目前所有功能都是正常的，包括上传文件的位置问题，上传文件的权限问题等等。经过检验，上传一个14M的PDF，再下载下来没有问题。
+- 去掉了pthread,keep-alive功能
+
 
 
