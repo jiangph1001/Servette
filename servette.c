@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
         socklen_t len = sizeof(client_addr);
         //client_addr在项目最后进行处理
         client_sock = accept(server_sock, (struct sockaddr *)& client_addr,&len);
+        //usleep(5000);
         if(client_sock < 0)
         {
             continue;

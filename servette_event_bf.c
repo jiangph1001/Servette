@@ -11,8 +11,15 @@
 #include "response.h"
 
 char *file_base_path;
-char file_name[20][MIDDLE_SIZE];
 
+struct ub
+{
+    int flag;
+    char buffer[MAX_SIZE];
+} upload_buffer;
+void socket_event_cb(struct bufferevent *bev, short events, void *arg);
+
+char *big_buffer;
 /*
 Description:
     实现简单的CGI功能,真实的CGI复杂得多
@@ -66,7 +73,47 @@ void response_cgi_Event(struct bufferevent *bev, char *arg)
     }
 }
 
+int read_my_buffer(char *buffer)
+{
+    if (upload_buffer.flag)
+    {
+        //有数据
+        sprintf(buffer, "%s", upload_buffer.buffer);
+        upload_buffer.flag = 0;
+        return strlen(upload_buffer.buffer);
+    }
+    else
+    {
+        usleep(5000);
+        return -1;
+    }
+}
 
+int write_my_buffer(char *buffer)
+{
+    if (upload_buffer.flag)
+    {
+        usleep(500);
+        return -1;
+    }
+    else
+    {
+        sprintf(upload_buffer.buffer, "%s", buffer);
+        upload_buffer.flag = 1;
+        return 0;
+    }
+}
+
+/*
+Description:
+    当post请求来临时，调用此函数
+*/
+void post_cb(struct bufferevent *bev, void *arg)
+{
+    static int size = 0;
+    usleep(50000);
+    printf("临时的回调函数\n");
+}
 /*
 Description:
     从输入的buffer字符数组中的下标pos开始，到下一个"\r\n"。
@@ -77,10 +124,12 @@ Parameters:
 Return:
     成功返回0，失败返回1
 */
-int upload_file_Event(struct bufferevent *bev, char *buffer, char *arg, http_header_chain headers, int begin_pos_of_http_content, int size_of_buffer)
+int upload_file_Event(struct bufferevent *bev, char *buffer_, char *arg, http_header_chain headers, int begin_pos_of_http_content)
 {
+    char *buffer = big_buffer + 5;
     int content_length = 0;
     int temp_pos = 0;
+    int size_of_buffer = strlen(buffer);
     char temp[MAX_SIZE];
     char boundary[MIDDLE_SIZE];
     char filename[MIDDLE_SIZE];
@@ -107,17 +156,10 @@ int upload_file_Event(struct bufferevent *bev, char *buffer, char *arg, http_hea
         char_pointer = char_pointer + 1;
     }
     boundary[temp_pos] = '\0';
-    // boundary之前还会多两个"-"
-    // strncpy(temp, boundary, sizeof(temp) - 1);
-    // temp[strlen(boundary)] = '\0';
-    // strncpy(boundary, "--", sizeof(boundary) - 1);
-    // boundary[2] = '\0';
-    // strncat(boundary, temp, sizeof(boundary) - strlen(boundary) - 1);
-    // boundary[strlen(temp)] = '\0';
-    sprintf(temp,"%s",boundary);
-    sprintf(boundary,"--%s",temp);
+    sprintf(temp, "%s", boundary);
+    sprintf(boundary, "--%s", temp);
 
-    printf("boundary: %s \n", boundary);
+    //printf("boundary: %s \n", boundary);
     //begin_pos_of_http_content很重要, HTTP数据包在这一点之后就是http数据包的实体部分
     //使用pos_of_buffer来显示现在读取的buffer的位置
     int pos_of_buffer = begin_pos_of_http_content;
@@ -180,7 +222,6 @@ int upload_file_Event(struct bufferevent *bev, char *buffer, char *arg, http_hea
         // boundary，存在证明file结尾在此buffer中，不存在
         // 证明还需要再读socket中的数据
         int pos_of_boundary_after_pos_of_buffer = kmp(buffer + pos_of_buffer, boundary, size_of_buffer - pos_of_buffer);
-        int size_of_buffer;
         // file的结尾不存在于此buffer中
         if (pos_of_boundary_after_pos_of_buffer == -1)
         {
@@ -196,8 +237,9 @@ int upload_file_Event(struct bufferevent *bev, char *buffer, char *arg, http_hea
             else
             {
                 //读socket中的数据
-                size_of_buffer = bufferevent_read(bev, buffer, MAX_SIZE);
                 usleep(300000);
+                size_of_buffer = bufferevent_read(bev, buffer, MAX_SIZE);
+
                 printf("从socket中读出的量：%d\n", size_of_buffer);
                 pos_of_buffer = 0;
             }
@@ -230,12 +272,6 @@ int upload_file_Event(struct bufferevent *bev, char *buffer, char *arg, http_hea
     response_cgi_Event(bev, temp);
     return 0;
 }
-
-upload_file_Event_Continue(struct bufferevent *bev, char *buffer)
-{
-
-}
-
 
 /*
 Description:
@@ -286,7 +322,6 @@ void response_download_chunk_Event(struct bufferevent *bev, char *arg)
     {
         construct_header(header, 404, "text/html");
         bufferevent_write(bev, header, strlen(header));
-
         return;
     }
     //构建下载的相应头部
@@ -307,7 +342,7 @@ void response_download_chunk_Event(struct bufferevent *bev, char *arg)
         if (size > 0)
         {
             ws_ret = bufferevent_write(bev, buf, size);
-            printf("写入结果:%d\n",ws_ret);
+            printf("写入结果:%d\n", ws_ret);
         }
         bufferevent_write(bev, CRLF, strlen(CRLF));
         free(chunk_head);
@@ -386,24 +421,38 @@ Return:
 */
 void socket_read_cb(struct bufferevent *bev, void *arg)
 {
-    static int fd_list[100];
-    char buffer[MAX_SIZE];
-    int fd = *(int *)arg ;//代表当前打开的socket的文件描述符
-    
-    size_t len = bufferevent_read(bev, buffer, sizeof(buffer) - 1);
-    buffer[len] = '\0';
-    printf("fd_list: %d\n",fd_list[fd]);
-    if(fd_list[fd] > 0)
-    {
-        printf("还有%d字节需要读取\n",fd_list[fd]);
-        fd_list[fd]-=len;
+    static int fd_list[100] = {0};
+    static int big_buffer_size = 0;
+    static int flag = 0;
+    char *buffer;
+    buffer = (char *)malloc(MAX_SIZE);
+    int fd = *(int *)arg; //代表当前打开的socket的文件描述符
 
+    size_t len = bufferevent_read(bev, buffer, strlen(buffer) - 1);
+    printf("本次读了%d,还有%d字节需要读取\n", len, fd_list[fd]);
+    buffer[len] = '\0';
+    printf("fd_list: %d\n", fd_list[fd]);
+    if (fd_list[fd] > 0)
+    {
+        fd_list[fd] -= len;
+        printf("本次读了%d,还有%d字节需要读取\n", len, fd_list[fd]);
+        if (fd_list[fd] <= 0)
+        {
+            fd_list[fd] = 0;
+            buffer = big_buffer;
+        }
+        big_buffer = (char *)realloc(big_buffer, big_buffer_size + len);
+        big_buffer_size += len;
+        sprintf(big_buffer, "%s%s", big_buffer, buffer);
+        printf("now big buffer is %d\n", big_buffer_size);
         return;
     }
 
-    printf("\n\nGet Ruquest:\n--------\n%s\n--------\n",buffer);
+    big_buffer_size = 0;
+
+    printf("\n\nGet Ruquest:\n--------\n%s\n--------\n", buffer);
     //do_Method_Event(bev, buffer);
-    char *methods,*message;
+    char *methods, *message;
     message = (char *)malloc(MIDDLE_SIZE * sizeof(char));
     methods = (char *)malloc(MAX_SIZE * sizeof(char));
     //如果发送的请求特别的非法，比如第一个字符串长度超过了5，就会段错误，所以这里将methods长度增长
@@ -422,14 +471,15 @@ void socket_read_cb(struct bufferevent *bev, void *arg)
 
     char *ContentLength = (char *)malloc(MIN_SIZE * sizeof(char));
     int cl_ret = get_http_header_content("Content-Length", ContentLength, &headers, MAX_SIZE);
-    if(cl_ret == 0)
+    if (cl_ret == 0)
     {
-        printf("Content-Length:%s\n",ContentLength);
+        printf("Content-Length:%s\n", ContentLength);
         int content_length = atoi(ContentLength);
         int remain = content_length - len;
-        printf("读了%d,%d待读取\n",len,remain);
-        if(remain<0);
-            fd_list[fd]=remain;
+        printf("读了%d,%d待读取\n", len, remain);
+        if (remain < 0)
+            remain = 0;
+        fd_list[fd] = remain;
     }
 
     decode_message(message);
@@ -453,7 +503,12 @@ void socket_read_cb(struct bufferevent *bev, void *arg)
         }
         break;
     case 'P':
-        upload_file_Event(bev, buffer, message, headers, begin_pos_of_http_content, strlen(buffer));
+        big_buffer = (char *)realloc(big_buffer, big_buffer_size + len);
+        big_buffer_size += len;
+        sprintf(big_buffer, "%s", buffer);
+        printf("now big buffer is %d\n", big_buffer_size);
+        //bufferevent_setcb(bev,temp_cb,temp_cb,socket_event_cb,NULL);
+        //upload_file_Event(bev, buffer, message, headers, begin_pos_of_http_content);
         break;
     default:
         printf("不支持的请求:\n");
@@ -468,7 +523,6 @@ Description:
 void socket_write_cb(struct bufferevent *bev, void *arg)
 {
     //do_nothing
-    //printf("开始写了\n");
 }
 
 /*
@@ -519,13 +573,13 @@ void listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
 
     base = (struct event_base *)arg;
     bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
-    
+
     // bev->timeout_write.tv_sec = 1;
     struct timeval *t = (struct timeval *)malloc(sizeof(struct timeval));
     t->tv_sec = 3;
     t->tv_usec = 0;
-    bufferevent_set_timeouts(bev,t,t);//设置写超时为3秒
-    bufferevent_setwatermark(bev,EV_READ | EV_WRITE,0,MAX_SIZE);
+    bufferevent_set_timeouts(bev, t, t); //设置写超时为3秒
+    //bufferevent_setwatermark(bev,EV_READ ,MAX_SIZE - 1,MAX_SIZE);
     printf("写水位:%d %d\n", bev->wm_write.high, bev->wm_write.low);
     printf("读水位:%d %d\n", bev->wm_read.high, bev->wm_read.low);
     //rintf("写超时：%d %d\n", bev->timeout_write.tv_sec, bev->timeout_write.tv_usec);
@@ -534,8 +588,6 @@ void listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
     bufferevent_setcb(bev, socket_read_cb, socket_write_cb, socket_event_cb, p_fd);
     bufferevent_enable(bev, EV_READ);
 }
-
-
 
 int main(int argc, const char *argv[])
 {
