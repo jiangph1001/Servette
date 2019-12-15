@@ -500,14 +500,6 @@ int upload_file(SSL * client_ssl, int client_sock, char *buffer, char *arg, http
             }
             else
             {
-                //读socket中的数据
-                // if(judge_socket_closed(client_sock))
-                // {
-                //     printf("传输中断\n");
-                //     return;
-                // }
-                // size_of_buffer = read(client_sock, buffer, MAX_SIZE);
-
                 ret_code = ssl_read(client_ssl, buffer, MAX_SIZE, &real_size);
                 size_of_buffer = real_size;
                 printf("从socket中读出的量：%d\n", size_of_buffer);

@@ -17,4 +17,4 @@ test: tester.c
 install: filelist.c
 	gcc -o cgi-bin/filelist $^
 ssl_servette: servette_ssl.c
-	gcc -o $@ $^ -Iinclude -L/lib -lssl -lcrypto
+	gcc -o $@ $^ -I. -L. -lssl -lcrypto
