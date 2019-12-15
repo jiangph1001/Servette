@@ -1,4 +1,6 @@
 servette
+ssl_servette
+filelist
 *.o
 *.txt
 test

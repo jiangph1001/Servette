@@ -4,9 +4,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-#include "../config.h"
-
-
+#include "config.h"
 
 void output_headers()
 {

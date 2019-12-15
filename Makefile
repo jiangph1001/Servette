@@ -14,5 +14,7 @@ event:servette_event_bf.c
 	gcc -o $@ $^ $(EVENT) $(LIBS) -g
 test: tester.c
 	gcc -o $@ $^ 
-install: cgi-bin/filelist.c
+install: filelist.c
 	gcc -o cgi-bin/filelist $^
+ssl_servette: servette_ssl.c
+	gcc -o $@ $^ -Iinclude -L/lib -lssl -lcrypto
