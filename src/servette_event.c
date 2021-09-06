@@ -23,10 +23,13 @@ char *file_base_path;
 /**
  * 销毁写事件用到的结构体
  */
-void destroy_sock_ev_write(struct sock_ev_write* sock_ev_write_struct){
-    if(NULL != sock_ev_write_struct){
-//        event_del(sock_ev_write_struct->write_ev);//因为写事件没用EV_PERSIST，故不用event_del
-        if(NULL != sock_ev_write_struct->write_ev){
+void destroy_sock_ev_write(struct sock_ev_write *sock_ev_write_struct)
+{
+    if (NULL != sock_ev_write_struct)
+    {
+        //        event_del(sock_ev_write_struct->write_ev);//因为写事件没用EV_PERSIST，故不用event_del
+        if (NULL != sock_ev_write_struct->write_ev)
+        {
             free(sock_ev_write_struct->write_ev);
         }
         /*
@@ -38,28 +41,31 @@ void destroy_sock_ev_write(struct sock_ev_write* sock_ev_write_struct){
     }
 }
 
-
 /**
  * 读事件结束后，用于销毁相应的资源
  */
-void destroy_sock_ev(struct sock_ev* sock_ev_struct){
-    if(NULL == sock_ev_struct){
+void destroy_sock_ev(struct sock_ev *sock_ev_struct)
+{
+    if (NULL == sock_ev_struct)
+    {
         return;
     }
     event_del(sock_ev_struct->read_ev);
-    event_base_loopexit(sock_ev_struct->base, NULL);//停止loop循环
-    if(NULL != sock_ev_struct->read_ev){
+    event_base_loopexit(sock_ev_struct->base, NULL); //停止loop循环
+    if (NULL != sock_ev_struct->read_ev)
+    {
         free(sock_ev_struct->read_ev);
     }
     event_base_free(sock_ev_struct->base);
-//    destroy_sock_ev_write(sock_ev_struct->sock_ev_write_struct);
+    //    destroy_sock_ev_write(sock_ev_struct->sock_ev_write_struct);
     free(sock_ev_struct);
 }
 
 void on_write(int client_sock, short event, void *arg)
 {
     printf("on write\n");
-    char methods[5],message[MIDDLE_SIZE];; //GET or POST
+    char methods[5], message[MIDDLE_SIZE];
+    ; //GET or POST
     if (arg == NULL)
     {
         return;
@@ -67,8 +73,8 @@ void on_write(int client_sock, short event, void *arg)
     struct sock_ev_write *sock_ev_write_struct = (struct sock_ev_write *)arg;
 
     char *buffer;
-    buffer = (char *)malloc(MAX_SIZE*sizeof(char));
-    sprintf(buffer, "%s",sock_ev_write_struct->buffer);
+    buffer = (char *)malloc(MAX_SIZE * sizeof(char));
+    sprintf(buffer, "%s", sock_ev_write_struct->buffer);
 
     //destroy_sock_ev_write(sock_ev_write_struct);
     //int write_num = write(sock, buffer, strlen(buffer));
@@ -86,30 +92,30 @@ void on_write(int client_sock, short event, void *arg)
     //print_http_headers(&headers);
     switch (methods[0])
     {
-        // GET
-        case 'G':
-            // 当message字符串开始就出现"/?download="子串时
-            if (kmp(message, "/?download=", strlen(message)) == 0)
-            {
-                response_download_chunk(client_sock, message);
-            }
-            else if (kmp(message, "/?cgi-bin=", strlen(message)) == 0)
-            // 当message字符串开始就出现"/?cgi-bin="子串时
-            {
-                response_cgi(client_sock, message);
-            }
-            else
-            {
-                response_webpage(client_sock, message);
-            }
-            break;
-            // POST
-        case 'P':
-            upload_file(client_sock, buffer, message, headers, begin_pos_of_http_content, strlen(buffer));
-            break;
-        default:
-            printf("不支持的请求:\n");
-            response_echo(client_sock, buffer);
+    // GET
+    case 'G':
+        // 当message字符串开始就出现"/?download="子串时
+        if (kmp(message, "/?download=", strlen(message)) == 0)
+        {
+            response_download_chunk(client_sock, message);
+        }
+        else if (kmp(message, "/?cgi-bin=", strlen(message)) == 0)
+        // 当message字符串开始就出现"/?cgi-bin="子串时
+        {
+            response_cgi(client_sock, message);
+        }
+        else
+        {
+            response_webpage(client_sock, message);
+        }
+        break;
+        // POST
+    case 'P':
+        upload_file(client_sock, buffer, message, headers, begin_pos_of_http_content, strlen(buffer));
+        break;
+    default:
+        printf("不支持的请求:\n");
+        response_echo(client_sock, buffer);
     }
     //usleep(40000);
 }
@@ -126,13 +132,12 @@ void on_read(int client_sock, short event, void *arg)
     fcntl(client_sock, F_SETFL, flags);
     */
     //本来应该用while一直循环，但由于用了libevent，只在可以读的时候才触发on_read()
-    int size_of_buffer = recv(client_sock, buffer, MAX_SIZE, 0); 
+    int size_of_buffer = recv(client_sock, buffer, MAX_SIZE, 0);
     if (size_of_buffer == 0)
     { //说明socket关闭
         //destroy_sock_ev(event_struct);
         //close(client_sock);
         return;
-
     }
     printf("%s\n", buffer);
     struct sock_ev_write *sock_ev_write_struct = (struct sock_ev_write *)malloc(sizeof(struct sock_ev_write));
@@ -143,8 +148,6 @@ void on_read(int client_sock, short event, void *arg)
     event_base_set(event_struct->base, write_ev);
     event_add(write_ev, NULL);
 }
-
-
 
 void *new_process(void *p_client_sock)
 {
@@ -175,35 +178,35 @@ void on_accept(int sock, short event, void *arg)
 {
     // while(1)
     // {
-        struct sockaddr_in client_addr;
-        socklen_t len = sizeof(client_addr);
-        
-        int client_sock = accept(sock, (struct sockaddr *)&client_addr, &len);
-        if (client_sock < 0)
-        {
-            printf("accept error\n");
-            return;
-        }
-        printf("new accept :%d\n", client_sock);
-        //accept_new_thread(new_fd);
-        // pthread_t tid;
-        // pthread_create(&tid, NULL, new_process, &client_sock);
-        //pthread_join(tid, NULL); // // // //
+    struct sockaddr_in client_addr;
+    socklen_t len = sizeof(client_addr);
 
-            //初始化base,写事件和读事件
-        struct event_base *base = event_base_new();
-        struct event *read_ev = (struct event *)malloc(sizeof(struct event)); //发生读事件后，从socket中取出数据
+    int client_sock = accept(sock, (struct sockaddr *)&client_addr, &len);
+    if (client_sock < 0)
+    {
+        printf("accept error\n");
+        return;
+    }
+    printf("new accept :%d\n", client_sock);
+    //accept_new_thread(new_fd);
+    // pthread_t tid;
+    // pthread_create(&tid, NULL, new_process, &client_sock);
+    //pthread_join(tid, NULL); // // // //
 
-        //将base，read_ev,write_ev封装到一个event_struct对象里，便于销毁
-        struct sock_ev *event_struct = (struct sock_ev *)malloc(sizeof(struct sock_ev));
-        event_struct->base = base;
-        event_struct->read_ev = read_ev;
-        //对读事件进行相应的设置
-        event_set(read_ev, client_sock, EV_READ | EV_PERSIST, on_read, event_struct);
-        event_base_set(base, read_ev);
-        event_add(read_ev, NULL);
-        //开始libevent的loop循环
-        event_base_dispatch(base);
+    //初始化base,写事件和读事件
+    struct event_base *base = event_base_new();
+    struct event *read_ev = (struct event *)malloc(sizeof(struct event)); //发生读事件后，从socket中取出数据
+
+    //将base，read_ev,write_ev封装到一个event_struct对象里，便于销毁
+    struct sock_ev *event_struct = (struct sock_ev *)malloc(sizeof(struct sock_ev));
+    event_struct->base = base;
+    event_struct->read_ev = read_ev;
+    //对读事件进行相应的设置
+    event_set(read_ev, client_sock, EV_READ | EV_PERSIST, on_read, event_struct);
+    event_base_set(base, read_ev);
+    event_add(read_ev, NULL);
+    //开始libevent的loop循环
+    event_base_dispatch(base);
     //}
 }
 
@@ -229,8 +232,8 @@ int start_server()
     //evutil_make_listen_socket_reuseable(sock_stat);
     //设置接收地址和端口重用
     int opt = 1;
-    setsockopt(sock_stat,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
-    setsockopt(sock_stat,SOL_SOCKET,SO_REUSEPORT,&opt,sizeof(opt));
+    setsockopt(sock_stat, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(sock_stat, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;                //ipv4
     server_addr.sin_port = htons(PORT);              //port:8080
@@ -254,9 +257,9 @@ int start_server()
 
     //设置libevent事件，每当socket出现可读事件，就调用on_accept()
     printf("Servette Start\nPowered By libevent\nListening port:%d\n", PORT);
-    struct event_base* base = event_base_new();
+    struct event_base *base = event_base_new();
     struct event listen_ev;
-    event_set(&listen_ev, sock_stat, EV_READ|EV_PERSIST, on_accept, NULL);
+    event_set(&listen_ev, sock_stat, EV_READ | EV_PERSIST, on_accept, NULL);
     event_base_set(base, &listen_ev);
     event_add(&listen_ev, NULL);
     event_base_dispatch(base);

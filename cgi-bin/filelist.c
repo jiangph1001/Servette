@@ -6,8 +6,6 @@
 
 #include "../config.h"
 
-
-
 void output_headers()
 {
     printf("<!DOCTYPE>\n");
@@ -30,15 +28,13 @@ Parameters:
 Return:
     NULL
 */
-void output_error_html(char * file_base_path, char * dir_path, char * error_code)
+void output_error_html(char *file_base_path, char *dir_path, char *error_code)
 {
     // 输出HTML
-
-
     // 输出错误信息和提示
     printf("<p> 无法访问 %s</p>\n", dir_path);
     printf("<p> %s </p>\n", error_code);
-    printf("<a href=\"/?cgi-bin=%s\">点此返回%s</a>\n", file_base_path,file_base_path);
+    printf("<a href=\"/?cgi-bin=%s\">点此返回%s</a>\n", file_base_path, file_base_path);
 
     printf("<hr/ >\n");
     printf("</body>\n");
@@ -54,10 +50,10 @@ Parameters:
 Return:
     NULL
 */
-void output_files_and_dirs(char * file_base_path, char * dir_path)
+void output_files_and_dirs(char *file_base_path, char *dir_path)
 {
-    DIR * dir_info = opendir(dir_path);
-    if(dir_info == NULL)
+    DIR *dir_info = opendir(dir_path);
+    if (dir_info == NULL)
     {
         // 打开目录文件失败
         output_error_html(file_base_path, dir_path, "This is a folder. But cannot open this folder");
@@ -66,11 +62,10 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
     else
     {
         // 设置一些需要用到的数据和结构体
-        struct dirent * file_in_dir;
+        struct dirent *file_in_dir;
         char file_path[MIDDLE_SIZE];
         char father_path[MIDDLE_SIZE];
         struct stat file_info;
-
 
         // 输出HTML
         output_headers();
@@ -83,19 +78,16 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
         printf("<p><input type=\"submit\" value=\"上传\" /></p>\n");
         printf("</form>\n");
         printf("<hr />\n");
-
         printf("<pre>\n");
-
         printf("<table frame=\"void\"  width=\"50%\" style=\"text-align:left\">\n");
-
         // 如果当前要显示的目录dir_path,不是用户可以访问的跟目录file_base_path，那么可以显示上一级目录
-        if( strcmp(dir_path, file_base_path) != 0 )
+        if (strcmp(dir_path, file_base_path) != 0)
         {
             // Linux中的目录以"/"分割，这里去掉最后一个"/"后的内容即可
-            char * char_pointer_of_end = strrchr(dir_path, '/');
-            char * char_pointer_of_dir_path = dir_path;
-            char * char_pointer_of_father_path = father_path;
-            while(char_pointer_of_dir_path != char_pointer_of_end)
+            char *char_pointer_of_end = strrchr(dir_path, '/');
+            char *char_pointer_of_dir_path = dir_path;
+            char *char_pointer_of_father_path = father_path;
+            while (char_pointer_of_dir_path != char_pointer_of_end)
             {
                 *(char_pointer_of_father_path++) = *(char_pointer_of_dir_path++);
             }
@@ -105,13 +97,11 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
             printf("<th>目录</th>\n");
             printf("</tr>\n");
         }
-        
-
 
         // 循环读取目录中文件的内容
-        while( file_in_dir = readdir(dir_info) )
+        while (file_in_dir = readdir(dir_info))
         {
-            if( (strcmp(file_in_dir->d_name, ".") == 0) || (strcmp(file_in_dir->d_name, "..") == 0) )
+            if ((strcmp(file_in_dir->d_name, ".") == 0) || (strcmp(file_in_dir->d_name, "..") == 0))
             {
                 continue;
             }
@@ -121,7 +111,7 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
 
             stat(file_path, &file_info);
 
-            if(S_ISDIR(file_info.st_mode))
+            if (S_ISDIR(file_info.st_mode))
             {
                 // 是目录
                 printf("<tr>\n");
@@ -137,7 +127,6 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
                 printf("<th>文件</th>\n");
                 printf("</tr>\n");
             }
-            
         }
 
         printf("</table>\n");
@@ -149,35 +138,32 @@ void output_files_and_dirs(char * file_base_path, char * dir_path)
     }
 }
 
-
 /*
 Description:
     被popen函数调用
     执行动态生成html代码的功能
 Parameters:
-    int argc [IN] popen调用此程序的参数个数
-    char *argv [IN] 此程序各个参数字符串的起始位置
-    必须传入三个参数
+    传入三个参数
     第一个参数是此程序名字filelist
     第二个参数是用户请求的目录dir_path
     第三个参数是程序执行时规定的用户可以读取的根目录file_base_path
 Return:
     返回0
 */
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-    if(argc != 3)
+    if (argc != 3)
     {
         printf("参数错误\n");
         return 0;
     }
-        
-    char * dir_path = argv[1];
-    char * file_base_path = argv[2];
+
+    char *dir_path = argv[1];
+    char *file_base_path = argv[2];
 
     // 检查dir_path目录是否在file_base_path目录下
-    char * char_pointer = strstr(dir_path, file_base_path);
-    if( char_pointer == NULL || char_pointer != dir_path )
+    char *char_pointer = strstr(dir_path, file_base_path);
+    if (char_pointer == NULL || char_pointer != dir_path)
     {
         output_headers();
         // 不在
@@ -186,7 +172,7 @@ int main(int argc, char* argv[])
     }
 
     // 检查dir_path目录是否存在
-    if( access(dir_path, F_OK) != 0 )
+    if (access(dir_path, F_OK) != 0)
     {
         output_headers();
         // 不存在
@@ -199,7 +185,7 @@ int main(int argc, char* argv[])
     // stat函数，把文件信息放入到struct stat file_info结构中
     stat(dir_path, &file_info);
 
-    if( S_ISDIR(file_info.st_mode) )
+    if (S_ISDIR(file_info.st_mode))
     {
         // 是目录
         output_files_and_dirs(file_base_path, dir_path);

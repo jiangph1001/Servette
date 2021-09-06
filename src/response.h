@@ -9,12 +9,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
 #include <pthread.h>
-
 #include "config.h"
 #include "header.h"
 #include "urldecode.h"
@@ -45,7 +43,6 @@ int judge_socket_closed(int client_socket)
     return 1;
 }
 
-
 /*
 Description:
     非阻塞下的数据写入
@@ -56,7 +53,7 @@ Return:
 int write_socket(int client_sock, char *buf, int size)
 {
     int w_ret = -1;
-    while(w_ret == -1)
+    while (w_ret == -1)
     {
         if (judge_socket_closed(client_sock))
         {
@@ -64,12 +61,12 @@ int write_socket(int client_sock, char *buf, int size)
             return -1;
         }
         w_ret = write(client_sock, buf, size);
-        #ifdef _DEBUG
-        printf("写入:%d\n",w_ret);
-        #endif
-        if(w_ret == -1)
+#ifdef _DEBUG
+        printf("写入:%d\n", w_ret);
+#endif
+        if (w_ret == -1)
         {
-            if(errno = EWOULDBLOCK)
+            if (errno = EWOULDBLOCK)
             {
                 printf("缓冲区已满\n");
             }
@@ -78,8 +75,8 @@ int write_socket(int client_sock, char *buf, int size)
         else
         {
             return 0;
-        }        
-    } 
+        }
+    }
 }
 /*
 Description:
@@ -106,8 +103,8 @@ void response_webpage(int client_sock, char *file)
     {
         sprintf(file_name, "%s%s", HTML_DIR, file);
     }
-    int pos = kmp(file_name,"?",strlen(file_name));
-    if(pos != -1)
+    int pos = kmp(file_name, "?", strlen(file_name));
+    if (pos != -1)
     {
         file_name[pos] = '\0';
     }
@@ -118,7 +115,7 @@ void response_webpage(int client_sock, char *file)
         //打开文件失败时构造404的相应
         construct_header(header, 404, "text/html");
         write(client_sock, header, strlen(header));
-        fd=open("www/err.html",O_RDONLY);
+        fd = open("www/err.html", O_RDONLY);
     }
     else
     {
@@ -321,8 +318,8 @@ void response_download_chunk(int client_sock, char *arg)
         int ws_ret;
         if (size > 0)
         {
-            ws_ret = write_socket(client_sock,buf,size);
-            if(ws_ret == -1)
+            ws_ret = write_socket(client_sock, buf, size);
+            if (ws_ret == -1)
             {
                 //出现客户端关闭的情况
                 return;
@@ -563,8 +560,8 @@ void *do_Method(void *p_client_sock)
     fcntl(client_sock, F_SETFL, flags);
     while (1)
     {
-        
-        char *methods,*message,*buffer;
+
+        char *methods, *message, *buffer;
         methods = (char *)malloc(MAX_SIZE * sizeof(char));
         //如果发送的请求特别的非法，比如第一个字符串长度超过了5，就会段错误，所以这里将methods长度增长
         buffer = (char *)malloc(MAX_SIZE * sizeof(char));
@@ -614,7 +611,6 @@ void *do_Method(void *p_client_sock)
         int begin_pos_of_http_content = get_http_headers(buffer, &headers);
         //print_http_headers(&headers);
 
-        
         Connection = (char *)malloc(MIN_SIZE * sizeof(char));
         int keep_alive = get_http_header_content("Connection", Connection, &headers, MAX_SIZE);
 
@@ -629,7 +625,7 @@ void *do_Method(void *p_client_sock)
             {
                 response_download_chunk(client_sock, message + pos);
             }
-            else if ((pos = kmp(message, "?cgi-bin=", strlen(message)))!= -1)
+            else if ((pos = kmp(message, "?cgi-bin=", strlen(message))) != -1)
             // 当message字符串开始就出现"/?cgi-bin="子串时
             {
                 response_cgi(client_sock, message + pos);

@@ -1,3 +1,4 @@
+vpath = src
 objects =  servette.o
 headerfile = response.h http_header_utils.h config.h
 LIBS = -lpthread
